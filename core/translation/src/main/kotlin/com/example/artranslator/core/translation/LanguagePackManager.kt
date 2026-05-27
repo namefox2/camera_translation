@@ -18,10 +18,11 @@ import javax.inject.Singleton
  * ML Kit 오프라인 번역 모델의 다운로드·삭제·상태 확인.
  *
  * 진행 방식:
- *  - downloadModelIfNeeded(제한 없음 조건) 으로 즉시 다운로드 시작
+ *  - requireWifi=true  → DownloadConditions.requireWifi() — ML Kit WiFi 최적화 경로 사용
+ *  - requireWifi=false → DownloadConditions 제한 없음 — 모바일 데이터 허용
  *  - Task.isComplete 폴링(2초 간격) → DownloadState.Downloading(elapsedSeconds) 방출
  *    → UI에서 "XX초 경과" 실시간 표시
- *  - 타임아웃 없음 (앱이 살아있는 한 계속 대기)
+ *  - 타임아웃: WiFi 10분 / 모바일 데이터 15분 초과 시 Error 방출
  *  - 완료 후 isModelDownloaded()로 실제 저장 검증
  */
 @Singleton
@@ -33,8 +34,15 @@ class LanguagePackManager @Inject constructor() {
         emit(DownloadState.Downloading(0))
 
         val mlKitCode = languageCode.toMlKitCode()
-        // WiFi 체크는 ViewModel에서 사전 완료 → ML Kit에는 항상 제한 없음 조건
-        val conditions = DownloadConditions.Builder().build()
+
+        // WiFi 선택 시 ML Kit에도 WiFi 조건 전달
+        //  → ML Kit 내부 WiFi 최적화 다운로드 경로를 사용하게 됨
+        // 모바일 데이터 선택 시 제한 없음 조건 (이전과 동일)
+        val conditions = if (requireWifi) {
+            DownloadConditions.Builder().requireWifi().build()
+        } else {
+            DownloadConditions.Builder().build()
+        }
 
         val options = TranslatorOptions.Builder()
             .setSourceLanguage(mlKitCode)
@@ -46,12 +54,25 @@ class LanguagePackManager @Inject constructor() {
             // 다운로드 Task 시작 (await 하지 않고 폴링)
             val downloadTask = translator.downloadModelIfNeeded(conditions)
 
-            // Task가 완료될 때까지 2초 간격으로 경과 시간 방출
+            // 타임아웃: 모바일 데이터 15분, WiFi 10분
+            // (모바일 데이터로 150 MB → 느린 LTE 기준 ~10분; 15분 초과 시 실질적으로 멈춘 것)
+            val timeoutSec = if (requireWifi) 600 else 900
             var elapsedSec = 0
             while (!downloadTask.isComplete) {
                 delay(2_000L)
                 elapsedSec += 2
                 emit(DownloadState.Downloading(elapsedSec))
+
+                if (elapsedSec >= timeoutSec) {
+                    val msg = if (requireWifi) {
+                        "다운로드 시간 초과 (${timeoutSec / 60}분).\n네트워크 상태를 확인 후 다시 시도해 주세요."
+                    } else {
+                        "모바일 데이터 다운로드 시간 초과 (${timeoutSec / 60}분).\n" +
+                        "와이파이로 전환 후 다시 시도하면 훨씬 빠릅니다."
+                    }
+                    emit(DownloadState.Error(msg))
+                    return@flow
+                }
             }
 
             // Task 결과 확인
