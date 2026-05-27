@@ -28,7 +28,9 @@ data class VoiceUiState(
     val translatedText: String = "",
     val sourceLanguage: String = "ko",
     val targetLanguage: String = "en",
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    /** Cloud API(온라인) 사용 시 false, ML Kit 폴백(온디바이스) 시 true */
+    val isOfflineTranslation: Boolean = false
 )
 
 @HiltViewModel
@@ -108,7 +110,8 @@ class VoiceInterpreterViewModel @Inject constructor(
                 is TranslationResult.Success -> {
                     _uiState.update { it.copy(
                         isLoading = false,
-                        translatedText = result.translatedText
+                        translatedText = result.translatedText,
+                        isOfflineTranslation = result.isOffline
                     ) }
                     speakTranslation()
                 }

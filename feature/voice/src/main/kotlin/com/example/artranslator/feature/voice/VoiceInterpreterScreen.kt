@@ -112,13 +112,45 @@ fun VoiceInterpreterScreen(
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("번역 결과", style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("번역 결과", style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary)
+                        if (uiState.translatedText.isNotEmpty()) {
+                            Spacer(Modifier.width(6.dp))
+                            // 번역 엔진 뱃지
+                            Surface(
+                                shape = MaterialTheme.shapes.extraSmall,
+                                color = if (uiState.isOfflineTranslation)
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                else
+                                    MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Text(
+                                    text = if (uiState.isOfflineTranslation) "📱 온디바이스" else "☁️ Cloud",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    color = if (uiState.isOfflineTranslation)
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    else
+                                        MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = uiState.translatedText.ifEmpty { "번역이 여기에 표시됩니다" },
                         style = MaterialTheme.typography.bodyLarge
                     )
+                    // 온디바이스 번역 시 품질 경고
+                    if (uiState.isOfflineTranslation && uiState.translatedText.isNotEmpty()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "온디바이스 번역은 단어 위주 — 문장은 Cloud 연결 시 정확도 향상",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
                 }
                 if (uiState.translatedText.isNotEmpty()) {
                     IconButton(onClick = viewModel::speakTranslation) {
