@@ -1,6 +1,5 @@
 package com.example.artranslator.feature.ar
 
-import android.graphics.RectF
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.artranslator.core.translation.TranslationRepository
@@ -16,8 +15,10 @@ import javax.inject.Inject
 data class ArUiState(
     val isLoading: Boolean = false,
     val targetLanguage: String = "ko",
-    val sourceLanguage: String? = null, // null = auto-detect
+    val sourceScript: TextAnalyzer.Script = TextAnalyzer.Script.LATIN,
     val translatedBlocks: List<OverlayView.TranslatedBlock> = emptyList(),
+    val frameWidth: Int = 1,
+    val frameHeight: Int = 1,
     val errorMessage: String? = null,
     val isOnline: Boolean = true,
     val isCameraPermissionGranted: Boolean = false
@@ -31,32 +32,20 @@ class ArTranslationViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ArUiState())
     val uiState: StateFlow<ArUiState> = _uiState.asStateFlow()
 
-    // Pending translation job — cancelled on each new batch
     private var translationJob: Job? = null
 
-    // Frame dimensions received from TextAnalyzer
-    private var frameWidth: Int = 1
-    private var frameHeight: Int = 1
-
-    /**
-     * Called by the camera pipeline each time new text blocks are detected.
-     * Cancels any in-flight translation and starts a fresh coroutine.
-     */
     fun onTextBlocksDetected(
         blocks: List<TextAnalyzer.TextBlock>,
         frameW: Int,
         frameH: Int
     ) {
-        frameWidth = frameW
-        frameHeight = frameH
         translationJob?.cancel()
         translationJob = viewModelScope.launch {
-            val translatedBlocks = blocks.mapNotNull { block ->
+            val translated = blocks.mapNotNull { block ->
                 if (block.text.isBlank()) return@mapNotNull null
                 val result = translationRepository.translate(
                     text = block.text,
-                    targetLanguage = _uiState.value.targetLanguage,
-                    sourceLanguage = _uiState.value.sourceLanguage
+                    targetLanguage = _uiState.value.targetLanguage
                 )
                 when (result) {
                     is TranslationResult.Success -> {
@@ -64,8 +53,7 @@ class ArTranslationViewModel @Inject constructor(
                         OverlayView.TranslatedBlock(
                             originalText = block.text,
                             translatedText = result.translatedText,
-                            boundingBox = RectF(box),
-                            normRect = RectF(
+                            normRect = android.graphics.RectF(
                                 box.left.toFloat() / frameW,
                                 box.top.toFloat() / frameH,
                                 box.right.toFloat() / frameW,
@@ -76,25 +64,26 @@ class ArTranslationViewModel @Inject constructor(
                     is TranslationResult.Error -> null
                 }
             }
-            _uiState.update { it.copy(translatedBlocks = translatedBlocks, isOnline = true) }
+            _uiState.update { it.copy(
+                translatedBlocks = translated,
+                frameWidth = frameW,
+                frameHeight = frameH,
+                isOnline = true
+            )}
         }
     }
 
-    fun setTargetLanguage(languageCode: String) {
+    fun setTargetLanguage(languageCode: String) =
         _uiState.update { it.copy(targetLanguage = languageCode) }
-    }
 
-    fun setSourceLanguage(languageCode: String?) {
-        _uiState.update { it.copy(sourceLanguage = languageCode) }
-    }
+    fun setSourceScript(script: TextAnalyzer.Script) =
+        _uiState.update { it.copy(sourceScript = script) }
 
-    fun setCameraPermissionGranted(granted: Boolean) {
+    fun setCameraPermissionGranted(granted: Boolean) =
         _uiState.update { it.copy(isCameraPermissionGranted = granted) }
-    }
 
-    fun clearOverlay() {
+    fun clearOverlay() =
         _uiState.update { it.copy(translatedBlocks = emptyList()) }
-    }
 
     override fun onCleared() {
         super.onCleared()

@@ -98,7 +98,7 @@ fun LanguageManagerScreen(
 @Composable
 private fun InfoBanner() {
     Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -109,11 +109,11 @@ private fun InfoBanner() {
                 Icons.Default.Info,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(16.dp)
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                "언어팩은 Google ML Kit 서버에서 다운로드됩니다 (80~200 MB).\n인터넷 연결이 필요합니다.",
+                "💡 Google ML Kit 서버에서 다운로드 (영어 80 MB ~ 중국어 200 MB)",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSecondaryContainer
             )
@@ -230,9 +230,10 @@ private fun AvailableLanguageItem(
                     is DownloadState.Downloading -> {
                         Spacer(Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            // ML Kit는 진행률을 제공하지 않으므로 불확정(indeterminate) 표시
                             LinearProgressIndicator(modifier = Modifier.weight(1f).height(4.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("다운로드 중...",
+                            Text("다운로드 중… 크기에 따라 수분 소요",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary)
                         }

@@ -79,12 +79,8 @@ class LanguageManagerViewModel @Inject constructor(
             return
         }
 
-        // ② 인터넷 자체가 없음
-        if (!isInternetConnected()) {
-            _snackbarError.value = "🌐 인터넷 연결을 확인해 주세요.\n언어팩은 Google 서버에서 다운로드됩니다 (80~200 MB)."
-            return
-        }
-
+        // ② 인터넷 체크는 ML Kit에 맡김 (사전 차단 시 false negative 발생 가능)
+        // 다운로드 실패 시 ML Kit 에러 메시지가 Snackbar로 표시됨
         startDownload(code, requireWifi)
     }
 
