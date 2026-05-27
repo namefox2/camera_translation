@@ -39,17 +39,15 @@ class MlKitTranslationDataSource @Inject constructor() {
                 .build()
 
             val translator = Translation.getClient(options)
-
-            // 조건 없이 호출하면 ML Kit가 내부적으로 WiFi를 기다릴 수 있으므로
-            // 명시적으로 "제한 없음" 조건 전달
-            val noRestriction = com.google.mlkit.common.model.DownloadConditions.Builder().build()
-            translator.downloadModelIfNeeded(noRestriction).await()
-
-            val result = translator.translate(text).await()
-            translator.close()
-
-            cache.put(cacheKey, result)
-            TranslationResult.Success(result, sourceLanguage, isOffline = true)
+            try {
+                val noRestriction = com.google.mlkit.common.model.DownloadConditions.Builder().build()
+                translator.downloadModelIfNeeded(noRestriction).await()
+                val result = translator.translate(text).await()
+                cache.put(cacheKey, result)
+                TranslationResult.Success(result, sourceLanguage, isOffline = true)
+            } finally {
+                translator.close()
+            }
         } catch (e: Exception) {
             TranslationResult.Error("ML Kit 번역 오류: ${e.localizedMessage}", e)
         }

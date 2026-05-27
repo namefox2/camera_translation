@@ -81,27 +81,27 @@ class TranslationRepositoryImpl @Inject constructor(
         targetLanguage: String,
         translated: String
     ) {
-        // 상한 초과 시 오래된 순 100건 삭제
-        if (translationCacheDao.count() >= CACHE_MAX) {
-            translationCacheDao.deleteOldest(CACHE_EVICT)
-        }
-        translationCacheDao.upsert(
-            TranslationCacheEntity(
+        // count → evict → upsert 단일 트랜잭션 (TOCTOU 방지)
+        translationCacheDao.upsertWithEviction(
+            entity = TranslationCacheEntity(
                 sourceText = text,
                 sourceLanguage = src,
                 targetLanguage = targetLanguage,
                 translatedText = translated
-            )
+            ),
+            maxSize = CACHE_MAX,
+            evictCount = CACHE_EVICT
         )
     }
+
+    // LanguageIdentification 클라이언트를 한 번만 생성해 재사용 (호출마다 할당 방지)
+    private val languageIdClient by lazy { LanguageIdentification.getClient() }
 
     // ─── 나머지 구현 ─────────────────────────────────────────────────────────
 
     override suspend fun identifyLanguage(text: String): String? {
         return try {
-            val languageId = LanguageIdentification.getClient()
-            val langCode = languageId.identifyLanguage(text).await()
-            languageId.close()
+            val langCode = languageIdClient.identifyLanguage(text).await()
             if (langCode == "und") null else langCode
         } catch (e: Exception) {
             null

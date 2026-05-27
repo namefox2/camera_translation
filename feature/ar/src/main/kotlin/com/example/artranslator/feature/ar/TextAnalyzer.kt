@@ -58,7 +58,7 @@ class TextAnalyzer(
     }
 
     private val isProcessing = AtomicBoolean(false)
-    private var lastAnalyzedTimestamp = 0L
+    @Volatile private var lastAnalyzedTimestamp = 0L
     // 1000 ms: Cloud API 번역 완료 대기 (300ms 이하면 번역 Job이 항상 취소됨)
     private val debounceMs = 1000L
     // AUTO: 스크립트 확정 후 onScriptDetected를 다시 부르지 않도록
@@ -170,7 +170,7 @@ class TextAnalyzer(
      *  - 라틴 문자:        1.0
      */
     private fun scoreText(text: com.google.mlkit.vision.text.Text, recScript: Script): Double {
-        var score = text.textBlocks.size * 10.0
+        var score = text.textBlocks.size * 2.0
 
         for (c in text.text) {
             val code = c.code

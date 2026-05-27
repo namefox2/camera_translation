@@ -52,8 +52,6 @@ data class Translation(
 @Singleton
 class CloudTranslationDataSource @Inject constructor() {
 
-    private val apiKey: String = "" // Injected via BuildConfig in the :app module
-
     private val api: CloudTranslationApi by lazy {
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC

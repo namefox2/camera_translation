@@ -50,6 +50,7 @@ class VoiceInterpreterViewModel @Inject constructor(
     }
 
     fun startListening() {
+        speechRecognizer?.destroy()   // 이전 세션 리소스 해제 후 재생성
         _uiState.update { it.copy(isListening = true, recognizedText = "", errorMessage = null) }
 
         speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {

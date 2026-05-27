@@ -148,7 +148,7 @@ class CameraTranslateViewModel @Inject constructor(
      * @return 인식된 텍스트, 없으면 null
      */
     private suspend fun recognizeWithAutoDetect(
-        bitmap: android.graphics.Bitmap,
+        bitmap: Bitmap,
         script: TextAnalyzer.Script
     ): String? {
         if (script != TextAnalyzer.Script.AUTO) {
@@ -186,7 +186,7 @@ class CameraTranslateViewModel @Inject constructor(
         return latinText.ifBlank { null }
     }
 
-    private fun TextAnalyzer.Script.toRecognizer(): com.google.mlkit.vision.text.TextRecognizer =
+    private fun TextAnalyzer.Script.toRecognizer(): TextRecognizer =
         when (this) {
             TextAnalyzer.Script.LATIN    -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
             TextAnalyzer.Script.JAPANESE -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
