@@ -68,9 +68,11 @@ fun CameraTranslateScreen(
     when (val step = uiState.step) {
         is CaptureStep.Preview -> CameraPreviewStep(
             targetLanguage = uiState.targetLanguage,
+            sourceScript = uiState.sourceScript,
             overlayColor = overlayColor,
             onCaptured = { bitmap, rotation -> viewModel.onPhotoCaptured(bitmap, rotation) },
-            onLanguageChange = viewModel::setTargetLanguage
+            onLanguageChange = viewModel::setTargetLanguage,
+            onScriptChange = viewModel::setSourceScript
         )
         is CaptureStep.Selecting -> SelectionStep(
             bitmap = step.bitmap,
@@ -97,19 +99,29 @@ fun CameraTranslateScreen(
 @Composable
 private fun CameraPreviewStep(
     targetLanguage: String,
+    sourceScript: TextAnalyzer.Script,
     overlayColor: Int,
     onCaptured: (Bitmap, Int) -> Unit,
-    onLanguageChange: (String) -> Unit
+    onLanguageChange: (String) -> Unit,
+    onScriptChange: (TextAnalyzer.Script) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val executor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
     var imageCaptureRef by remember { mutableStateOf<ImageCapture?>(null) }
     var showLangPicker by remember { mutableStateOf(false) }
+    var showScriptPicker by remember { mutableStateOf(false) }
 
     val languages = listOf(
         "ko" to "한국어", "en" to "영어", "ja" to "일본어",
         "zh" to "중국어", "fr" to "프랑스어", "de" to "독일어", "es" to "스페인어"
+    )
+
+    val sourceScripts = listOf(
+        TextAnalyzer.Script.LATIN    to "영·불·독·스",
+        TextAnalyzer.Script.JAPANESE to "일본어",
+        TextAnalyzer.Script.CHINESE  to "중국어",
+        TextAnalyzer.Script.KOREAN   to "한국어"
     )
 
     // 갤러리에서 이미지 선택
@@ -156,18 +168,29 @@ private fun CameraPreviewStep(
             )
         }
 
-        // 상단: 언어 선택
+        // 상단: 원문 스크립트 + 번역 언어 선택
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            FilledTonalButton(onClick = { showLangPicker = true }) {
-                Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(18.dp))
+            // 원문 언어(스크립트) 선택
+            FilledTonalButton(onClick = { showScriptPicker = true }) {
+                Icon(Icons.Default.TextFields, contentDescription = null, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("→ ${languages.find { it.first == targetLanguage }?.second ?: "한국어"}")
+                Text(
+                    sourceScripts.find { it.first == sourceScript }?.second ?: "영·불·독·스",
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+            // 번역 대상 언어
+            FilledTonalButton(onClick = { showLangPicker = true }) {
+                Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("→ ${languages.find { it.first == targetLanguage }?.second ?: "한국어"}",
+                    style = MaterialTheme.typography.labelMedium)
             }
         }
 
@@ -244,7 +267,30 @@ private fun CameraPreviewStep(
         }
     }
 
-    // 언어 선택 다이얼로그
+    // 원문 스크립트 선택 다이얼로그
+    if (showScriptPicker) {
+        AlertDialog(
+            onDismissRequest = { showScriptPicker = false },
+            title = { Text("원문 언어 선택") },
+            text = {
+                Column {
+                    Text("찍을 텍스트의 언어를 선택하면 인식 정확도가 높아집니다.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    sourceScripts.forEach { (script, label) ->
+                        TextButton(
+                            onClick = { onScriptChange(script); showScriptPicker = false },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(label) }
+                    }
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    // 번역 대상 언어 선택 다이얼로그
     if (showLangPicker) {
         AlertDialog(
             onDismissRequest = { showLangPicker = false },

@@ -46,7 +46,9 @@ class TextAnalyzer(
 
     private val isProcessing = AtomicBoolean(false)
     private var lastAnalyzedTimestamp = 0L
-    private val debounceMs = 300L
+    // 1000 ms: Cloud API 번역(~300–600 ms)이 완료될 시간 확보
+    // 300 ms로 두면 번역 Job이 항상 취소되어 오버레이가 절대 안 나타남
+    private val debounceMs = 1000L
 
     override fun analyze(imageProxy: ImageProxy) {
         val currentTime = System.currentTimeMillis()

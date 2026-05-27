@@ -10,6 +10,10 @@ import com.example.artranslator.core.translation.TranslationRepository
 import com.example.artranslator.core.translation.model.TranslationResult
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
+import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
+import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
+import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +51,7 @@ data class CameraTranslateUiState(
     val step: CaptureStep = CaptureStep.Preview,
     val isProcessing: Boolean = false,
     val targetLanguage: String = "ko",
+    val sourceScript: TextAnalyzer.Script = TextAnalyzer.Script.LATIN,
     val error: String? = null
 )
 
@@ -90,8 +95,13 @@ class CameraTranslateViewModel @Inject constructor(
                 // 1. 선택 영역을 비트맵 좌표로 변환 후 크롭
                 val cropped = cropBitmap(bitmap, selStart, selEnd, viewSize)
 
-                // 2. ML Kit OCR (온디바이스)
-                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                // 2. ML Kit OCR — 선택된 스크립트에 맞는 인식기 사용
+                val recognizer: TextRecognizer = when (_uiState.value.sourceScript) {
+                    TextAnalyzer.Script.LATIN    -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                    TextAnalyzer.Script.JAPANESE -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+                    TextAnalyzer.Script.CHINESE  -> TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+                    TextAnalyzer.Script.KOREAN   -> TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+                }
                 val visionText = recognizer.process(InputImage.fromBitmap(cropped, 0)).await()
                 recognizer.close()
 
@@ -138,6 +148,8 @@ class CameraTranslateViewModel @Inject constructor(
     }
 
     fun setTargetLanguage(code: String) = _uiState.update { it.copy(targetLanguage = code) }
+
+    fun setSourceScript(script: TextAnalyzer.Script) = _uiState.update { it.copy(sourceScript = script) }
 
     fun clearError() = _uiState.update { it.copy(error = null) }
 
