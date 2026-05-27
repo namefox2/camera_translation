@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.artranslator.core.database.PhrasebookDatabase
 import com.example.artranslator.core.database.dao.PhraseDao
+import com.example.artranslator.core.database.dao.TranslationCacheDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,10 +24,17 @@ object DatabaseModule {
         context,
         PhrasebookDatabase::class.java,
         "phrasebook.db"
-    ).build()
+    )
+        .addMigrations(PhrasebookDatabase.MIGRATION_1_2)
+        .build()
 
     @Provides
     @Singleton
     fun providePhraseDao(database: PhrasebookDatabase): PhraseDao =
         database.phraseDao()
+
+    @Provides
+    @Singleton
+    fun provideTranslationCacheDao(database: PhrasebookDatabase): TranslationCacheDao =
+        database.translationCacheDao()
 }

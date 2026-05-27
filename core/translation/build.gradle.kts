@@ -25,6 +25,7 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(project(":core:database"))
 
     // ML Kit
     implementation(libs.mlkit.translate)
