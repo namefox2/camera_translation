@@ -1,11 +1,11 @@
 package com.example.artranslator.di
 
 import com.example.artranslator.BuildConfig
-import com.example.artranslator.core.translation.TranslationRepositoryImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Module
@@ -13,17 +13,11 @@ import javax.inject.Singleton
 object AppModule {
 
     /**
-     * Injects the Cloud Translation API key (loaded from local.properties via BuildConfig)
-     * into [TranslationRepositoryImpl]. The key is never stored in source code.
+     * Google Cloud Translation API 키를 Named 바인딩으로 제공합니다.
+     * 키는 local.properties → BuildConfig를 통해 주입되며, 소스코드에 하드코딩하지 않습니다.
      */
     @Provides
     @Singleton
-    fun provideApiKey(): String = BuildConfig.TRANSLATION_API_KEY
-
-    @Provides
-    @Singleton
-    fun configureTranslationRepo(
-        repo: TranslationRepositoryImpl,
-        apiKey: String
-    ): TranslationRepositoryImpl = repo.apply { this.apiKey = apiKey }
+    @Named("translation_api_key")
+    fun provideTranslationApiKey(): String = BuildConfig.TRANSLATION_API_KEY
 }

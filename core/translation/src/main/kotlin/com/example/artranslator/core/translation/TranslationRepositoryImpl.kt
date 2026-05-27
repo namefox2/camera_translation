@@ -10,6 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Singleton
@@ -17,11 +18,11 @@ class TranslationRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val cloudDataSource: CloudTranslationDataSource,
     private val mlKitDataSource: MlKitTranslationDataSource,
-    private val languagePackManager: LanguagePackManager
+    private val languagePackManager: LanguagePackManager,
+    // API 키는 AppModule의 @Named("translation_api_key")로 제공됩니다.
+    // local.properties → BuildConfig 경유, 소스코드 하드코딩 금지.
+    @Named("translation_api_key") private val apiKey: String
 ) : TranslationRepository {
-
-    // API key is injected via the :app BuildConfig via DI in AppModule
-    var apiKey: String = ""
 
     override suspend fun translate(
         text: String,
@@ -31,16 +32,16 @@ class TranslationRepositoryImpl @Inject constructor(
         val src = sourceLanguage ?: identifyLanguage(text) ?: "en"
 
         return if (isOnline()) {
-            // Prefer Cloud Translation for higher quality
+            // 온라인: Cloud Translation API (고품질)
             val result = cloudDataSource.translate(text, targetLanguage, src, apiKey)
             if (result is TranslationResult.Error) {
-                // Fallback to offline on API error
+                // Cloud API 오류 시 오프라인 ML Kit으로 폴백
                 mlKitDataSource.translate(text, targetLanguage, src)
             } else {
                 result
             }
         } else {
-            // Offline fallback
+            // 오프라인: ML Kit 온디바이스 번역
             mlKitDataSource.translate(text, targetLanguage, src)
         }
     }
@@ -65,12 +66,9 @@ class TranslationRepositoryImpl @Inject constructor(
     override suspend fun isModelDownloaded(languageCode: String): Boolean =
         languagePackManager.isModelAvailable(languageCode)
 
-    override suspend fun getDownloadedLanguages(): List<String> {
-        // In a full implementation this would query the ML Kit RemoteModelManager
-        return emptyList()
-    }
+    override suspend fun getDownloadedLanguages(): List<String> = emptyList()
 
-    // ─── Connectivity ─────────────────────────────────────────────────────────
+    // ─── 네트워크 상태 확인 ────────────────────────────────────────────────────
 
     private fun isOnline(): Boolean {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
