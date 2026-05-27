@@ -7,46 +7,33 @@ import com.google.mlkit.nl.translate.TranslateLanguage
 import com.google.mlkit.nl.translate.TranslateRemoteModel
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
-import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withTimeout
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * ML Kit 오프라인 번역 모델의 다운로드·삭제·상태 확인을 담당합니다.
+ * ML Kit 오프라인 번역 모델의 다운로드·삭제·상태 확인.
  *
- * 핵심 설계 원칙:
- *  - ML Kit Translate의 공식 다운로드 API: translator.downloadModelIfNeeded(conditions)
- *  - conditions에는 항상 DownloadConditions.Builder().build() (제한 없음) 을 전달합니다.
- *    → ML Kit 내부에서 "WiFi 대기" 로직이 동작하는 것을 막아 무한 스피너 방지.
- *  - WiFi 여부 체크는 LanguageManagerViewModel에서 사전 처리하므로 여기서는 불필요.
- *  - 120초 타임아웃으로 만약의 hang 방지.
- *  - isModelAvailable()은 RemoteModelManager.isModelDownloaded()로 정확히 확인.
+ * 진행 방식:
+ *  - downloadModelIfNeeded(제한 없음 조건) 으로 즉시 다운로드 시작
+ *  - Task.isComplete 폴링(2초 간격) → DownloadState.Downloading(elapsedSeconds) 방출
+ *    → UI에서 "XX초 경과" 실시간 표시
+ *  - 타임아웃 없음 (앱이 살아있는 한 계속 대기)
+ *  - 완료 후 isModelDownloaded()로 실제 저장 검증
  */
 @Singleton
 class LanguagePackManager @Inject constructor() {
 
     private val modelManager = RemoteModelManager.getInstance()
 
-    /**
-     * 언어 모델을 다운로드합니다.
-     *
-     * 다운로드 흐름:
-     * 1. downloadModelIfNeeded(조건 없음) → ML Kit가 즉시 다운로드 시작
-     * 2. Task 완료 후 isModelDownloaded()로 실제 저장 여부 검증
-     * 3. 검증 실패 시 명시적 에러 발생
-     *
-     * WiFi 체크는 ViewModel에서 사전 완료 → ML Kit에는 "제한 없음" 조건만 전달
-     */
     fun downloadModel(languageCode: String, requireWifi: Boolean = false): Flow<DownloadState> = flow {
         emit(DownloadState.Downloading(0))
 
         val mlKitCode = languageCode.toMlKitCode()
-        // ML Kit에는 항상 네트워크 제한 없는 조건 전달
-        // (WiFi 체크는 ViewModel에서 이미 완료, ML Kit 내부 "WiFi 대기" 방지)
+        // WiFi 체크는 ViewModel에서 사전 완료 → ML Kit에는 항상 제한 없음 조건
         val conditions = DownloadConditions.Builder().build()
 
         val options = TranslatorOptions.Builder()
@@ -56,36 +43,42 @@ class LanguagePackManager @Inject constructor() {
         val translator = Translation.getClient(options)
 
         try {
-            withTimeout(120_000L) {
-                translator.downloadModelIfNeeded(conditions).await()
+            // 다운로드 Task 시작 (await 하지 않고 폴링)
+            val downloadTask = translator.downloadModelIfNeeded(conditions)
+
+            // Task가 완료될 때까지 2초 간격으로 경과 시간 방출
+            var elapsedSec = 0
+            while (!downloadTask.isComplete) {
+                delay(2_000L)
+                elapsedSec += 2
+                emit(DownloadState.Downloading(elapsedSec))
             }
 
-            // ─ 다운로드 완료 검증 ──────────────────────────────────────────────
-            // 일부 ML Kit 버전에서 Task가 실제 완료 전에 success를 반환하는 케이스 존재
-            val verifyModel = TranslateRemoteModel.Builder(mlKitCode).build()
-            val isReady = try {
-                modelManager.isModelDownloaded(verifyModel).await()
-            } catch (_: Exception) {
-                // isModelDownloaded 자체가 실패하면 Task가 성공했으므로 true로 간주
-                true
-            }
-
-            if (isReady) {
-                emit(DownloadState.Downloaded)
+            // Task 결과 확인
+            if (downloadTask.isSuccessful) {
+                // 실제 모델 저장 여부 검증
+                val verifyModel = TranslateRemoteModel.Builder(mlKitCode).build()
+                val isReady = try {
+                    modelManager.isModelDownloaded(verifyModel).await()
+                } catch (_: Exception) {
+                    true // 검증 자체가 실패하면 Task 성공 기준으로 판단
+                }
+                if (isReady) {
+                    emit(DownloadState.Downloaded)
+                } else {
+                    emit(DownloadState.Error(
+                        "다운로드 완료됐지만 모델을 찾을 수 없습니다.\n" +
+                        "저장공간이 부족하거나 Play Services 문제일 수 있습니다."
+                    ))
+                }
             } else {
-                emit(DownloadState.Error(
-                    "모델을 다운로드했지만 확인할 수 없습니다.\n" +
-                    "저장공간 부족이나 Play Services 문제일 수 있습니다."
-                ))
+                val errMsg = downloadTask.exception?.message
+                    ?: downloadTask.exception?.localizedMessage
+                    ?: "알 수 없는 오류"
+                emit(DownloadState.Error("다운로드 실패: $errMsg"))
             }
-        } catch (e: TimeoutCancellationException) {
-            emit(DownloadState.Error(
-                "다운로드 시간 초과 (2분)\n인터넷 연결 또는 속도를 확인해 주세요."
-            ))
         } catch (e: Exception) {
-            // ML Kit 에러 메시지를 그대로 표시해 진단 가능하게
-            val msg = e.message ?: e.localizedMessage ?: e.javaClass.simpleName
-            emit(DownloadState.Error("다운로드 오류: $msg"))
+            emit(DownloadState.Error("오류: ${e.message ?: e.javaClass.simpleName}"))
         } finally {
             translator.close()
         }
@@ -101,7 +94,6 @@ class LanguagePackManager @Inject constructor() {
         }
     }
 
-    /** RemoteModelManager로 실제 다운로드 여부를 확인합니다 (probe 번역 방식 제거). */
     suspend fun isModelAvailable(languageCode: String): Boolean {
         return try {
             val model = TranslateRemoteModel.Builder(languageCode.toMlKitCode()).build()

@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.artranslator.core.database.PhrasebookSeeder
 import com.example.artranslator.core.database.dao.PhraseDao
 import com.example.artranslator.core.database.entity.DownloadedLanguageEntity
 import com.example.artranslator.core.translation.TranslationRepository
@@ -19,7 +20,8 @@ import javax.inject.Inject
 class LanguageManagerViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val translationRepository: TranslationRepository,
-    private val phraseDao: PhraseDao
+    private val phraseDao: PhraseDao,
+    private val phrasebookSeeder: PhrasebookSeeder
 ) : ViewModel() {
 
     data class LanguageListItem(
@@ -111,6 +113,9 @@ class LanguageManagerViewModel @Inject constructor(
                                 modelSizeMb = lang.estimatedSizeMb
                             )
                         )
+                        // 회화 데이터 시딩 (기존 데이터 초기화 후 삽입)
+                        phraseDao.deletePhrasesForLanguage(languageCode)
+                        phrasebookSeeder.seedLanguage(languageCode)
                     }
                     is DownloadState.Error -> {
                         // 에러를 Snackbar로도 표시 (목록 아이템의 작은 텍스트만으로 부족)

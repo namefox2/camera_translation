@@ -42,7 +42,8 @@ sealed class TranslationResult {
  */
 sealed class DownloadState {
     object NotDownloaded : DownloadState()
-    data class Downloading(val progress: Int) : DownloadState()
+    /** [elapsedSeconds] = 다운로드 시작 후 경과 초 (ML Kit는 실시간 진행률 미제공) */
+    data class Downloading(val elapsedSeconds: Int = 0) : DownloadState()
     object Downloaded : DownloadState()
     data class Error(val message: String) : DownloadState()
 }

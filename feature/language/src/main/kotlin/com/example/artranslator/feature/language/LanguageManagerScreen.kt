@@ -34,48 +34,51 @@ fun LanguageManagerScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
-        Column(
+        // 전체를 하나의 LazyColumn으로 — 다운된 언어가 많아도 스크롤 가능
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(innerPadding),
+            contentPadding = PaddingValues(bottom = 32.dp)
         ) {
             // ── 안내 배너 ─────────────────────────────────────────────────────
-            InfoBanner()
+            item { InfoBanner() }
 
             // ── 다운로드된 언어 ───────────────────────────────────────────────
             if (uiState.downloadedLanguages.isNotEmpty()) {
-                Text(
-                    "다운로드된 언어",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp)
-                )
-                uiState.downloadedLanguages.forEach { lang ->
+                item {
+                    Text(
+                        "다운로드된 언어",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp)
+                    )
+                }
+                items(uiState.downloadedLanguages, key = { "dl_${it.code}" }) { lang ->
                     DownloadedLanguageItem(
                         language = lang,
                         onDelete = { viewModel.deleteLanguage(lang.code) }
                     )
                 }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                item { HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) }
             }
 
             // ── 다운로드 가능한 언어 ──────────────────────────────────────────
-            Text(
-                "다운로드 가능한 언어",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp)
-            )
-
-            LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-                items(uiState.availableLanguages) { lang ->
-                    AvailableLanguageItem(
-                        language = lang,
-                        downloadState = uiState.downloadStates[lang.code] ?: DownloadState.NotDownloaded,
-                        isDownloaded = uiState.downloadedLanguages.any { it.code == lang.code },
-                        onDownload = { viewModel.requestDownload(lang.code) }
-                    )
-                }
+            item {
+                Text(
+                    "다운로드 가능한 언어",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp)
+                )
+            }
+            items(uiState.availableLanguages, key = { "avail_${it.code}" }) { lang ->
+                AvailableLanguageItem(
+                    language = lang,
+                    downloadState = uiState.downloadStates[lang.code] ?: DownloadState.NotDownloaded,
+                    isDownloaded = uiState.downloadedLanguages.any { it.code == lang.code },
+                    onDownload = { viewModel.requestDownload(lang.code) }
+                )
             }
         }
     }
@@ -230,12 +233,14 @@ private fun AvailableLanguageItem(
                     is DownloadState.Downloading -> {
                         Spacer(Modifier.height(4.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            // ML Kit는 진행률을 제공하지 않으므로 불확정(indeterminate) 표시
                             LinearProgressIndicator(modifier = Modifier.weight(1f).height(4.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("다운로드 중… 크기에 따라 수분 소요",
+                            val elapsed = downloadState.elapsedSeconds
+                            Text(
+                                if (elapsed > 0) "${elapsed}초 경과…" else "다운로드 중…",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary)
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
                     is DownloadState.Error -> {

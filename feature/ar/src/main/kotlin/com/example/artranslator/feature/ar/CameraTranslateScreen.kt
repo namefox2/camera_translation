@@ -2,6 +2,9 @@ package com.example.artranslator.feature.ar
 
 import android.Manifest
 import android.content.Context
+import android.graphics.BitmapFactory
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.graphics.Bitmap
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -109,6 +112,19 @@ private fun CameraPreviewStep(
         "zh" to "중국어", "fr" to "프랑스어", "de" to "독일어", "es" to "스페인어"
     )
 
+    // 갤러리에서 이미지 선택
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        val bitmap = try {
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream)
+            }
+        } catch (_: Exception) { null }
+        bitmap?.let { onCaptured(it, 0) }
+    }
+
     DisposableEffect(Unit) { onDispose { executor.shutdown() } }
 
     Box(Modifier.fillMaxSize()) {
@@ -167,46 +183,64 @@ private fun CameraPreviewStep(
                 .padding(horizontal = 12.dp, vertical = 4.dp)
         )
 
-        // 하단: 촬영 버튼
-        Box(
+        // 하단: 갤러리 + 셔터 버튼
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 48.dp),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .padding(bottom = 44.dp, start = 48.dp, end = 48.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // 외부 링
-            Surface(
-                shape = CircleShape,
-                color = Color.White.copy(alpha = 0.3f),
-                modifier = Modifier.size(80.dp)
-            ) {}
-            // 셔터 버튼
-            Button(
-                onClick = {
-                    imageCaptureRef?.takePicture(
-                        executor,
-                        object : ImageCapture.OnImageCapturedCallback() {
-                            override fun onCaptureSuccess(image: ImageProxy) {
-                                val bmp = image.toBitmap()
-                                val rotation = image.imageInfo.rotationDegrees
-                                image.close()
-                                onCaptured(bmp, rotation)
-                            }
-                            override fun onError(exception: ImageCaptureException) {}
-                        }
-                    )
-                },
-                modifier = Modifier.size(68.dp),
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                contentPadding = PaddingValues(0.dp)
+            // 갤러리 버튼
+            FilledTonalIconButton(
+                onClick = { galleryLauncher.launch("image/*") },
+                modifier = Modifier.size(56.dp)
             ) {
                 Icon(
-                    Icons.Default.PhotoCamera, contentDescription = "촬영",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(32.dp)
+                    Icons.Default.PhotoLibrary,
+                    contentDescription = "앨범에서 선택",
+                    modifier = Modifier.size(28.dp)
                 )
             }
+
+            // 셔터 버튼 (가운데, 더 크게)
+            Box(contentAlignment = Alignment.Center) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.3f),
+                    modifier = Modifier.size(80.dp)
+                ) {}
+                Button(
+                    onClick = {
+                        imageCaptureRef?.takePicture(
+                            executor,
+                            object : ImageCapture.OnImageCapturedCallback() {
+                                override fun onCaptureSuccess(image: ImageProxy) {
+                                    val bmp = image.toBitmap()
+                                    val rotation = image.imageInfo.rotationDegrees
+                                    image.close()
+                                    onCaptured(bmp, rotation)
+                                }
+                                override fun onError(exception: ImageCaptureException) {}
+                            }
+                        )
+                    },
+                    modifier = Modifier.size(68.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Icon(
+                        Icons.Default.PhotoCamera, contentDescription = "촬영",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            }
+
+            // 균형 맞추기용 빈 공간 (오른쪽)
+            Spacer(Modifier.size(56.dp))
         }
     }
 
