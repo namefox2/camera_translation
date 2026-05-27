@@ -29,9 +29,10 @@ interface TranslationRepository {
 
     /**
      * Download the offline ML Kit model for [languageCode].
+     * [requireWifi] = true 이면 WiFi 연결 시에만 다운로드합니다.
      * Emits [DownloadState] progress updates.
      */
-    fun downloadLanguageModel(languageCode: String): Flow<DownloadState>
+    fun downloadLanguageModel(languageCode: String, requireWifi: Boolean = false): Flow<DownloadState>
 
     /**
      * Delete the offline ML Kit model for [languageCode].

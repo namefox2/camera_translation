@@ -57,8 +57,8 @@ class TranslationRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun downloadLanguageModel(languageCode: String): Flow<DownloadState> =
-        languagePackManager.downloadModel(languageCode)
+    override fun downloadLanguageModel(languageCode: String, requireWifi: Boolean): Flow<DownloadState> =
+        languagePackManager.downloadModel(languageCode, requireWifi)
 
     override suspend fun deleteLanguageModel(languageCode: String): Boolean =
         languagePackManager.deleteModel(languageCode)

@@ -34,17 +34,19 @@ class LanguagePackManager @Inject constructor() {
 
     private val modelManager = RemoteModelManager.getInstance()
 
-    fun downloadModel(languageCode: String): Flow<DownloadState> = flow {
+    fun downloadModel(languageCode: String, requireWifi: Boolean = false): Flow<DownloadState> = flow {
         emit(DownloadState.Downloading(0))
         try {
             val mlKitCode = languageCode.toMlKitCode()
 
-            // 소스→한국어 모델 다운로드 (한국어 사용자 기준)
             val sourceModel = TranslateRemoteModel.Builder(mlKitCode).build()
-            // 한국어→소스 모델도 함께 다운로드 (양방향 통역 지원)
             val targetModel = TranslateRemoteModel.Builder(TranslateLanguage.KOREAN).build()
 
-            val conditions = DownloadConditions.Builder().build() // WiFi 미요구
+            val conditions = if (requireWifi) {
+                DownloadConditions.Builder().requireWifi().build()
+            } else {
+                DownloadConditions.Builder().build()
+            }
 
             withTimeout(120_000L) {
                 // 두 방향 모델을 순서대로 다운로드
