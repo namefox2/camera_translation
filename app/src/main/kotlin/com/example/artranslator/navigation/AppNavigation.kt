@@ -26,6 +26,9 @@ import com.example.artranslator.feature.language.LanguageManagerScreen
 import com.example.artranslator.feature.phrasebook.PhrasebookScreen
 import com.example.artranslator.feature.text.TextTranslationScreen
 import com.example.artranslator.feature.voice.VoiceInterpreterScreen
+import com.example.artranslator.legal.OpenSourceLicensesScreen
+import com.example.artranslator.legal.PrivacyPolicyScreen
+import com.example.artranslator.legal.TermsOfServiceScreen
 
 // ─── Navigation routes ────────────────────────────────────────────────────────
 
@@ -36,6 +39,9 @@ object Routes {
     const val PHRASEBOOK = "phrasebook"
     const val LANGUAGE = "language"
     const val SETTINGS = "settings"
+    const val PRIVACY_POLICY = "privacy_policy"
+    const val TERMS_OF_SERVICE = "terms_of_service"
+    const val OSS_LICENSES = "oss_licenses"
 }
 
 data class NavItem(val route: String, val label: String, val icon: ImageVector)
@@ -132,8 +138,20 @@ fun AppNavigation(
                 SettingsScreen(
                     currentTheme = themeType,
                     onThemeChange = onThemeChange,
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onPrivacyPolicy = { navController.navigate(Routes.PRIVACY_POLICY) },
+                    onTermsOfService = { navController.navigate(Routes.TERMS_OF_SERVICE) },
+                    onOssLicenses = { navController.navigate(Routes.OSS_LICENSES) }
                 )
+            }
+            composable(Routes.PRIVACY_POLICY) {
+                PrivacyPolicyScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.TERMS_OF_SERVICE) {
+                TermsOfServiceScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.OSS_LICENSES) {
+                OpenSourceLicensesScreen(onBack = { navController.popBackStack() })
             }
         }
     }
@@ -146,7 +164,10 @@ fun AppNavigation(
 private fun SettingsScreen(
     currentTheme: ThemeType,
     onThemeChange: (ThemeType) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onPrivacyPolicy: () -> Unit,
+    onTermsOfService: () -> Unit,
+    onOssLicenses: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -160,26 +181,85 @@ private fun SettingsScreen(
             )
         }
     ) { padding ->
-        Column(
+        androidx.compose.foundation.lazy.LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp)
         ) {
-            Text("테마 선택", style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(12.dp))
+            // ─ 테마 섹션 ──────────────────────────────────────────────────────
+            item {
+                Spacer(Modifier.height(16.dp))
+                Text("테마 선택", style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(12.dp))
+                ThemeType.entries.forEach { theme ->
+                    ThemeCard(
+                        theme = theme,
+                        isSelected = theme == currentTheme,
+                        onClick = { onThemeChange(theme) }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
 
-            ThemeType.entries.forEach { theme ->
-                ThemeCard(
-                    theme = theme,
-                    isSelected = theme == currentTheme,
-                    onClick = { onThemeChange(theme) }
-                )
+            // ─ 법적 고지 섹션 ─────────────────────────────────────────────────
+            item {
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+                Text("법적 고지", style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(8.dp))
+
+                LegalMenuItem(
+                    icon = Icons.Default.PrivacyTip,
+                    title = "개인정보처리방침",
+                    onClick = onPrivacyPolicy
+                )
+                LegalMenuItem(
+                    icon = Icons.Default.Description,
+                    title = "서비스 이용약관",
+                    onClick = onTermsOfService
+                )
+                LegalMenuItem(
+                    icon = Icons.Default.Code,
+                    title = "오픈소스 라이선스",
+                    onClick = onOssLicenses
+                )
+
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "앱 버전 1.0.0",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+                Spacer(Modifier.height(32.dp))
             }
         }
     }
+}
+
+@Composable
+private fun LegalMenuItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    onClick: () -> Unit
+) {
+    ListItem(
+        headlineContent = { Text(title) },
+        leadingContent = {
+            Icon(icon, contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary)
+        },
+        trailingContent = {
+            Icon(Icons.Default.ChevronRight, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+        },
+        modifier = Modifier.clickable(onClick = onClick)
+    )
+    HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
 }
 
 @Composable

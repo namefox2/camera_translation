@@ -35,6 +35,33 @@ fun VoiceInterpreterScreen(
         Text("실시간 음성 통역", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(8.dp))
 
+        // ─── 통신비밀보호법 고지 (법적 의무) ───────────────────────────────────
+        Surface(
+            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+            shape = MaterialTheme.shapes.small
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "본인 발화 입력 전용 · 타인 동의 없는 녹음은 통신비밀보호법 위반",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+
         // Language swap row
         LanguagePairRow(
             sourceLanguage = uiState.sourceLanguage,
