@@ -18,48 +18,50 @@ import javax.inject.Singleton
 /**
  * ML Kit 오프라인 번역 모델의 다운로드·삭제·상태 확인을 담당합니다.
  *
- * 이전 구현의 문제:
- *  - TranslatorOptions + downloadModelIfNeeded() 는 내부적으로 WiFi 조건이 맞지 않으면
- *    Task가 영원히 pending 상태로 남아 Flow가 complete되지 않음 → UI 무한 로딩
- *  - probe 번역("test")으로 isModelDownloaded 판단 → 모델 없으면 다운로드 시도해 꼬임
- *
- * 수정:
- *  - TranslateRemoteModel + RemoteModelManager.download() 로 직접 제어
- *  - RemoteModelManager.isModelDownloaded() 로 상태 정확히 확인
- *  - 120초 타임아웃 + 명확한 에러 메시지
- *  - WiFi 미요구 (모바일 데이터에서도 다운로드 가능)
+ * 핵심 설계 원칙:
+ *  - ML Kit Translate의 공식 다운로드 API: translator.downloadModelIfNeeded(conditions)
+ *  - conditions에는 항상 DownloadConditions.Builder().build() (제한 없음) 을 전달합니다.
+ *    → ML Kit 내부에서 "WiFi 대기" 로직이 동작하는 것을 막아 무한 스피너 방지.
+ *  - WiFi 여부 체크는 LanguageManagerViewModel에서 사전 처리하므로 여기서는 불필요.
+ *  - 120초 타임아웃으로 만약의 hang 방지.
+ *  - isModelAvailable()은 RemoteModelManager.isModelDownloaded()로 정확히 확인.
  */
 @Singleton
 class LanguagePackManager @Inject constructor() {
 
     private val modelManager = RemoteModelManager.getInstance()
 
+    /**
+     * 언어 모델을 다운로드합니다.
+     * WiFi 체크는 ViewModel에서 사전 완료된 상태이므로 ML Kit에는 조건 없이 전달합니다.
+     */
     fun downloadModel(languageCode: String, requireWifi: Boolean = false): Flow<DownloadState> = flow {
         emit(DownloadState.Downloading(0))
+
+        val mlKitCode = languageCode.toMlKitCode()
+        // ML Kit에 WiFi 조건을 넘기지 않음 → 내부 "WiFi 대기" 로직 차단
+        // WiFi 체크는 LanguageManagerViewModel.confirmDownload()에서 이미 완료
+        val conditions = DownloadConditions.Builder().build()
+
+        val options = TranslatorOptions.Builder()
+            .setSourceLanguage(mlKitCode)
+            .setTargetLanguage(TranslateLanguage.KOREAN)
+            .build()
+        val translator = Translation.getClient(options)
+
         try {
-            val mlKitCode = languageCode.toMlKitCode()
-
-            val sourceModel = TranslateRemoteModel.Builder(mlKitCode).build()
-            val targetModel = TranslateRemoteModel.Builder(TranslateLanguage.KOREAN).build()
-
-            val conditions = if (requireWifi) {
-                DownloadConditions.Builder().requireWifi().build()
-            } else {
-                DownloadConditions.Builder().build()
-            }
-
             withTimeout(120_000L) {
-                // 두 방향 모델을 순서대로 다운로드
-                modelManager.download(sourceModel, conditions).await()
-                // 한국어 모델은 이미 있을 가능성이 높지만 안전하게 재시도
-                runCatching { modelManager.download(targetModel, conditions).await() }
+                // 공식 API: downloadModelIfNeeded(conditions) 에 명시적 조건 전달
+                // 조건 없이 호출하면 ML Kit가 내부적으로 WiFi를 기다려 영원히 pending 가능
+                translator.downloadModelIfNeeded(conditions).await()
             }
-
             emit(DownloadState.Downloaded)
         } catch (e: TimeoutCancellationException) {
             emit(DownloadState.Error("다운로드 시간이 초과되었습니다 (2분). 네트워크를 확인해 주세요."))
         } catch (e: Exception) {
             emit(DownloadState.Error(e.localizedMessage ?: "다운로드에 실패했습니다"))
+        } finally {
+            translator.close()
         }
     }
 

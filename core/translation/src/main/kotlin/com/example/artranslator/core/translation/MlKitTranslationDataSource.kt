@@ -40,8 +40,10 @@ class MlKitTranslationDataSource @Inject constructor() {
 
             val translator = Translation.getClient(options)
 
-            // Ensure model is downloaded before translating
-            translator.downloadModelIfNeeded().await()
+            // 조건 없이 호출하면 ML Kit가 내부적으로 WiFi를 기다릴 수 있으므로
+            // 명시적으로 "제한 없음" 조건 전달
+            val noRestriction = com.google.mlkit.common.model.DownloadConditions.Builder().build()
+            translator.downloadModelIfNeeded(noRestriction).await()
 
             val result = translator.translate(text).await()
             translator.close()
