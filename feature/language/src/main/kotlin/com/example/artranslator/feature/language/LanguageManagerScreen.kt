@@ -150,25 +150,41 @@ private fun DownloadChoiceDialog(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "데이터 용량이 크니 와이파이로 다운로드하시겠습니까?",
+                    "와이파이로 다운로드하시겠습니까?",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
+                // 대용량 모델(100 MB 이상)은 모바일 데이터 경고 추가
+                if (sizeMb >= 100) {
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f),
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            "⚠️ 모바일 데이터로 다운 시\n수십 분이 소요될 수 있습니다",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Button(onClick = onDownloadWifi, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.Wifi, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("와이파이로 다운")
+                Text("와이파이로 다운 (권장)")
             }
         },
         dismissButton = {
             OutlinedButton(onClick = onDownloadNow, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.SignalCellularAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("그냥 다운")
+                Text("모바일 데이터로 다운")
             }
         }
     )
