@@ -56,7 +56,6 @@ fun AppNavigation(
 
     val navItems = listOf(
         NavItem(Routes.AR, "AR 번역", Icons.Default.CameraAlt),
-        NavItem(Routes.TEXT, "텍스트", Icons.Default.TextFields),
         NavItem(Routes.VOICE, "음성", Icons.Default.Mic),
         NavItem(Routes.PHRASEBOOK, themeType.contextTabLabel(), Icons.Default.MenuBook),
         NavItem(Routes.LANGUAGE, "언어", Icons.Default.Download),
