@@ -42,9 +42,9 @@ class LanguageManagerViewModel @Inject constructor(
     private val _pendingDownloadCode = MutableStateFlow<String?>(null)
     val pendingDownloadCode: StateFlow<String?> = _pendingDownloadCode.asStateFlow()
 
-    /** 와이파이 미연결 에러 메시지 (null = 에러 없음) */
-    private val _noWifiError = MutableStateFlow<String?>(null)
-    val noWifiError: StateFlow<String?> = _noWifiError.asStateFlow()
+    /** Snackbar 에러 메시지 — WiFi 미연결·인터넷 없음·다운로드 실패 등 모든 에러 */
+    private val _snackbarError = MutableStateFlow<String?>(null)
+    val snackbarError: StateFlow<String?> = _snackbarError.asStateFlow()
 
     init {
         observeDownloadedLanguages()
@@ -59,24 +59,29 @@ class LanguageManagerViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 다운로드 버튼 클릭 시 호출 → 다이얼로그(그냥 다운 / 와이파이로 다운) 표시
-     */
+    /** 다운로드 버튼 클릭 시 → 다이얼로그 표시 */
     fun requestDownload(languageCode: String) {
         _pendingDownloadCode.value = languageCode
     }
 
     /**
-     * 다이얼로그에서 선택 확정:
-     * - requireWifi = false → 데이터/WiFi 상관없이 즉시 다운로드
-     * - requireWifi = true  → WiFi 연결 확인 후 다운로드, 미연결 시 에러
+     * 다이얼로그에서 선택 확정.
+     * - requireWifi = false → 즉시 다운로드 (데이터/WiFi 모두 허용)
+     * - requireWifi = true  → WiFi 연결 확인 후 다운로드
      */
     fun confirmDownload(requireWifi: Boolean) {
         val code = _pendingDownloadCode.value ?: return
-        _pendingDownloadCode.value = null   // 다이얼로그 닫기
+        _pendingDownloadCode.value = null
 
+        // ① WiFi 선택했는데 WiFi 없음
         if (requireWifi && !isWifiConnected()) {
-            _noWifiError.value = "와이파이에 연결되어 있지 않습니다.\n와이파이 연결 후 다시 시도해 주세요."
+            _snackbarError.value = "📶 와이파이에 연결되어 있지 않습니다.\n와이파이 연결 후 다시 시도해 주세요."
+            return
+        }
+
+        // ② 인터넷 자체가 없음
+        if (!isInternetConnected()) {
+            _snackbarError.value = "🌐 인터넷 연결을 확인해 주세요.\n언어팩은 Google 서버에서 다운로드됩니다 (80~200 MB)."
             return
         }
 
@@ -88,9 +93,9 @@ class LanguageManagerViewModel @Inject constructor(
         _pendingDownloadCode.value = null
     }
 
-    /** Snackbar 표시 후 에러 상태 초기화 */
-    fun clearWifiError() {
-        _noWifiError.value = null
+    /** Snackbar 표시 후 에러 초기화 */
+    fun clearSnackbarError() {
+        _snackbarError.value = null
     }
 
     private fun startDownload(languageCode: String, requireWifi: Boolean) {
@@ -99,16 +104,23 @@ class LanguageManagerViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(downloadStates = it.downloadStates + (languageCode to state))
                 }
-                if (state == DownloadState.Downloaded) {
-                    val lang = ALL_LANGUAGES.find { l -> l.code == languageCode } ?: return@collect
-                    phraseDao.insertDownloadedLanguage(
-                        DownloadedLanguageEntity(
-                            languageCode = lang.code,
-                            displayName = lang.displayName,
-                            nativeName = lang.nativeName,
-                            modelSizeMb = lang.estimatedSizeMb
+                when (state) {
+                    is DownloadState.Downloaded -> {
+                        val lang = ALL_LANGUAGES.find { l -> l.code == languageCode } ?: return@collect
+                        phraseDao.insertDownloadedLanguage(
+                            DownloadedLanguageEntity(
+                                languageCode = lang.code,
+                                displayName = lang.displayName,
+                                nativeName = lang.nativeName,
+                                modelSizeMb = lang.estimatedSizeMb
+                            )
                         )
-                    )
+                    }
+                    is DownloadState.Error -> {
+                        // 에러를 Snackbar로도 표시 (목록 아이템의 작은 텍스트만으로 부족)
+                        _snackbarError.value = state.message
+                    }
+                    else -> {}
                 }
             }
         }
@@ -125,6 +137,15 @@ class LanguageManagerViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    // ─── 네트워크 상태 확인 ───────────────────────────────────────────────────────
+
+    private fun isInternetConnected(): Boolean {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     private fun isWifiConnected(): Boolean {

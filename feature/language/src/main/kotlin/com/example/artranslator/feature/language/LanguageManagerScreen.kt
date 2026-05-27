@@ -14,26 +14,21 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.artranslator.core.translation.model.DownloadState
 
-/**
- * Language download management screen.
- * Users can browse available languages, download offline models, and delete them.
- * When the user taps Download, a dialog asks whether to use WiFi or mobile data.
- */
 @Composable
 fun LanguageManagerScreen(
     viewModel: LanguageManagerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val pendingDownloadCode by viewModel.pendingDownloadCode.collectAsState()
-    val noWifiError by viewModel.noWifiError.collectAsState()
+    val snackbarError by viewModel.snackbarError.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // WiFi 미연결 에러 → Snackbar
-    LaunchedEffect(noWifiError) {
-        val msg = noWifiError ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Long)
-        viewModel.clearWifiError()
+    // 에러 → Snackbar (WiFi 미연결, 인터넷 없음, 다운로드 실패 모두 포함)
+    LaunchedEffect(snackbarError) {
+        val msg = snackbarError ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message = msg, duration = SnackbarDuration.Long)
+        viewModel.clearSnackbarError()
     }
 
     Scaffold(
@@ -44,13 +39,16 @@ fun LanguageManagerScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // ── 안내 배너 ─────────────────────────────────────────────────────
+            InfoBanner()
+
             // ── 다운로드된 언어 ───────────────────────────────────────────────
             if (uiState.downloadedLanguages.isNotEmpty()) {
                 Text(
                     "다운로드된 언어",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp)
                 )
                 uiState.downloadedLanguages.forEach { lang ->
                     DownloadedLanguageItem(
@@ -66,12 +64,10 @@ fun LanguageManagerScreen(
                 "다운로드 가능한 언어",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp)
             )
 
-            LazyColumn(
-                contentPadding = PaddingValues(bottom = 24.dp)
-            ) {
+            LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
                 items(uiState.availableLanguages) { lang ->
                     AvailableLanguageItem(
                         language = lang,
@@ -97,6 +93,34 @@ fun LanguageManagerScreen(
     }
 }
 
+// ─── 안내 배너 ────────────────────────────────────────────────────────────────
+
+@Composable
+private fun InfoBanner() {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "언어팩은 Google ML Kit 서버에서 다운로드됩니다 (80~200 MB).\n인터넷 연결이 필요합니다.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer
+            )
+        }
+    }
+}
+
 // ─── 다운로드 방식 선택 다이얼로그 ────────────────────────────────────────────
 
 @Composable
@@ -110,22 +134,14 @@ private fun DownloadChoiceDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
-            Icon(
-                Icons.Default.Download,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
+            Icon(Icons.Default.Download, contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary)
         },
-        title = {
-            Text(
-                "언어 다운로드",
-                style = MaterialTheme.typography.titleLarge
-            )
-        },
+        title = { Text("언어 다운로드") },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    "$languageName 오프라인 모델 (~${sizeMb}MB)",
+                    "$languageName (~${sizeMb} MB)",
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center
                 )
@@ -139,31 +155,15 @@ private fun DownloadChoiceDialog(
             }
         },
         confirmButton = {
-            // 와이파이로 다운
-            Button(
-                onClick = onDownloadWifi,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    Icons.Default.Wifi,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
+            Button(onClick = onDownloadWifi, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.Wifi, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("와이파이로 다운")
             }
         },
         dismissButton = {
-            // 그냥 다운 (모바일 데이터 포함)
-            OutlinedButton(
-                onClick = onDownloadNow,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    Icons.Default.SignalCellularAlt,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
+            OutlinedButton(onClick = onDownloadNow, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.SignalCellularAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("그냥 다운")
             }
@@ -223,20 +223,27 @@ private fun AvailableLanguageItem(
         headlineContent = { Text(language.nativeName) },
         supportingContent = {
             Column {
-                Text(language.displayName)
+                Text(language.displayName,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                 when (downloadState) {
                     is DownloadState.Downloading -> {
                         Spacer(Modifier.height(4.dp))
-                        LinearProgressIndicator(
-                            progress = { downloadState.progress / 100f },
-                            modifier = Modifier.fillMaxWidth(0.6f)
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            LinearProgressIndicator(modifier = Modifier.weight(1f).height(4.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("다운로드 중...",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary)
+                        }
                     }
-                    is DownloadState.Error -> Text(
-                        downloadState.message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.labelSmall
-                    )
+                    is DownloadState.Error -> {
+                        Spacer(Modifier.height(4.dp))
+                        // 에러 요약만 표시 (전체 에러는 Snackbar로)
+                        Text("다운로드 실패 — 다시 시도하려면 ↻ 탭",
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
                     else -> {}
                 }
             }
@@ -251,6 +258,13 @@ private fun AvailableLanguageItem(
                 downloadState is DownloadState.Downloading -> CircularProgressIndicator(
                     modifier = Modifier.size(24.dp), strokeWidth = 2.dp
                 )
+                downloadState is DownloadState.Error -> {
+                    // 에러 상태: 재시도 버튼
+                    IconButton(onClick = onDownload) {
+                        Icon(Icons.Default.Refresh, contentDescription = "재시도",
+                            tint = MaterialTheme.colorScheme.error)
+                    }
+                }
                 else -> IconButton(onClick = onDownload) {
                     Icon(Icons.Default.Download, contentDescription = "다운로드")
                 }
