@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import com.example.artranslator.feature.ar.TextAnalyzer.Companion.displayName
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -118,10 +119,11 @@ private fun CameraPreviewStep(
     )
 
     val sourceScripts = listOf(
-        TextAnalyzer.Script.LATIN    to "영·불·독·스",
+        TextAnalyzer.Script.AUTO     to "🔍 자동 감지",
         TextAnalyzer.Script.JAPANESE to "일본어",
         TextAnalyzer.Script.CHINESE  to "중국어",
-        TextAnalyzer.Script.KOREAN   to "한국어"
+        TextAnalyzer.Script.KOREAN   to "한국어",
+        TextAnalyzer.Script.LATIN    to "영어 계열 (영·불·독·스)"
     )
 
     // 갤러리에서 이미지 선택
@@ -168,29 +170,65 @@ private fun CameraPreviewStep(
             )
         }
 
-        // 상단: 원문 스크립트 + 번역 언어 선택
+        // 상단: "일본어 → 한국어" 통합 언어 선택 바
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 원문 언어(스크립트) 선택
-            FilledTonalButton(onClick = { showScriptPicker = true }) {
-                Icon(Icons.Default.TextFields, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    sourceScripts.find { it.first == sourceScript }?.second ?: "영·불·독·스",
-                    style = MaterialTheme.typography.labelMedium
-                )
-            }
-            // 번역 대상 언어
-            FilledTonalButton(onClick = { showLangPicker = true }) {
-                Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("→ ${languages.find { it.first == targetLanguage }?.second ?: "한국어"}",
-                    style = MaterialTheme.typography.labelMedium)
+            Surface(
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.88f),
+                tonalElevation = 2.dp
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    // 원문 언어 (왼쪽)
+                    TextButton(
+                        onClick = { showScriptPicker = true },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            sourceScript.displayName(),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.width(2.dp))
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    // 화살표 구분자
+                    Icon(
+                        Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                    // 번역 대상 언어 (오른쪽)
+                    TextButton(
+                        onClick = { showLangPicker = true },
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            languages.find { it.first == targetLanguage }?.second ?: "한국어",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.width(2.dp))
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
         }
 

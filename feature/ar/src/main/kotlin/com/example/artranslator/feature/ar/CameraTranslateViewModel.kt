@@ -51,7 +51,7 @@ data class CameraTranslateUiState(
     val step: CaptureStep = CaptureStep.Preview,
     val isProcessing: Boolean = false,
     val targetLanguage: String = "ko",
-    val sourceScript: TextAnalyzer.Script = TextAnalyzer.Script.LATIN,
+    val sourceScript: TextAnalyzer.Script = TextAnalyzer.Script.AUTO,  // 기본값: 자동 감지
     val error: String? = null
 )
 
@@ -95,18 +95,9 @@ class CameraTranslateViewModel @Inject constructor(
                 // 1. 선택 영역을 비트맵 좌표로 변환 후 크롭
                 val cropped = cropBitmap(bitmap, selStart, selEnd, viewSize)
 
-                // 2. ML Kit OCR — 선택된 스크립트에 맞는 인식기 사용
-                val recognizer: TextRecognizer = when (_uiState.value.sourceScript) {
-                    TextAnalyzer.Script.LATIN    -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-                    TextAnalyzer.Script.JAPANESE -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
-                    TextAnalyzer.Script.CHINESE  -> TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
-                    TextAnalyzer.Script.KOREAN   -> TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
-                }
-                val visionText = recognizer.process(InputImage.fromBitmap(cropped, 0)).await()
-                recognizer.close()
-
-                val recognized = visionText.text.trim()
-                if (recognized.isBlank()) {
+                // 2. ML Kit OCR — AUTO면 Japanese 프로브 → 스크립트 감지 → 필요시 재인식
+                val recognized = recognizeWithAutoDetect(cropped, _uiState.value.sourceScript)
+                if (recognized == null) {
                     _uiState.update { it.copy(isProcessing = false, error = "선택한 영역에서 텍스트를 찾지 못했습니다.\n다른 영역을 선택해 주세요.") }
                     return@launch
                 }
@@ -150,6 +141,80 @@ class CameraTranslateViewModel @Inject constructor(
     fun setTargetLanguage(code: String) = _uiState.update { it.copy(targetLanguage = code) }
 
     fun setSourceScript(script: TextAnalyzer.Script) = _uiState.update { it.copy(sourceScript = script) }
+
+    /**
+     * AUTO 모드: Japanese 인식기로 프로브 → Unicode 분포로 스크립트 감지 → 필요시 올바른 인식기로 재인식.
+     * 수동 선택 모드: 지정된 인식기 1회 실행.
+     * @return 인식된 텍스트, 없으면 null
+     */
+    private suspend fun recognizeWithAutoDetect(
+        bitmap: android.graphics.Bitmap,
+        script: TextAnalyzer.Script
+    ): String? {
+        if (script != TextAnalyzer.Script.AUTO) {
+            // 수동: 선택한 인식기 그대로 사용
+            val recognizer = script.toRecognizer()
+            val text = recognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text.trim()
+            recognizer.close()
+            return text.ifBlank { null }
+        }
+
+        // AUTO: 1패스 — Japanese 인식기로 프로브
+        val probeRecognizer = TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+        val probeText = probeRecognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text.trim()
+        probeRecognizer.close()
+
+        val detectedScript = detectScriptFromText(probeText)
+
+        // 감지된 스크립트가 JAPANESE라면 프로브 결과를 그대로 사용
+        if (detectedScript == TextAnalyzer.Script.JAPANESE || probeText.isNotBlank() &&
+            detectedScript != TextAnalyzer.Script.LATIN) {
+            // CHINESE / KOREAN은 전용 인식기로 재인식해 정확도 향상
+            if (detectedScript == TextAnalyzer.Script.CHINESE || detectedScript == TextAnalyzer.Script.KOREAN) {
+                val finalRecognizer = detectedScript.toRecognizer()
+                val finalText = finalRecognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text.trim()
+                finalRecognizer.close()
+                return finalText.ifBlank { probeText.ifBlank { null } }
+            }
+            return probeText.ifBlank { null }
+        }
+
+        // LATIN으로 감지되면 Latin 인식기로 재인식
+        val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        val latinText = latinRecognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text.trim()
+        latinRecognizer.close()
+        return latinText.ifBlank { null }
+    }
+
+    private fun TextAnalyzer.Script.toRecognizer(): com.google.mlkit.vision.text.TextRecognizer =
+        when (this) {
+            TextAnalyzer.Script.LATIN    -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            TextAnalyzer.Script.JAPANESE -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+            TextAnalyzer.Script.CHINESE  -> TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+            TextAnalyzer.Script.KOREAN   -> TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build())
+            TextAnalyzer.Script.AUTO     -> TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build())
+        }
+
+    /** TextAnalyzer와 동일한 스크립트 감지 휴리스틱 */
+    private fun detectScriptFromText(text: String): TextAnalyzer.Script {
+        var kana = 0; var hangul = 0; var cjk = 0; var latin = 0
+        for (c in text) {
+            val code = c.code
+            when {
+                code in 0x3040..0x30FF -> kana++
+                code in 0xAC00..0xD7A3 || code in 0x1100..0x11FF -> hangul++
+                code in 0x4E00..0x9FFF || code in 0x3400..0x4DBF -> cjk++
+                c.isLetter() -> latin++
+            }
+        }
+        val total = (kana + hangul + cjk + latin).coerceAtLeast(1)
+        return when {
+            kana.toFloat() / total > 0.05f   -> TextAnalyzer.Script.JAPANESE
+            hangul.toFloat() / total > 0.10f -> TextAnalyzer.Script.KOREAN
+            cjk.toFloat() / total > 0.10f    -> TextAnalyzer.Script.CHINESE
+            else                              -> TextAnalyzer.Script.LATIN
+        }
+    }
 
     fun clearError() = _uiState.update { it.copy(error = null) }
 

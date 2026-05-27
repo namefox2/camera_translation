@@ -16,7 +16,7 @@ import javax.inject.Inject
 data class ArUiState(
     val isLoading: Boolean = false,
     val targetLanguage: String = "ko",
-    val sourceScript: TextAnalyzer.Script = TextAnalyzer.Script.LATIN,
+    val sourceScript: TextAnalyzer.Script = TextAnalyzer.Script.AUTO,
     val translatedBlocks: List<OverlayView.TranslatedBlock> = emptyList(),
     val frameWidth: Int = 1,
     val frameHeight: Int = 1,

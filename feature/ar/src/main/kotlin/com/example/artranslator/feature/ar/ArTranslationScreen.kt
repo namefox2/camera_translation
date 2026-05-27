@@ -7,9 +7,10 @@ import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +20,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.artranslator.feature.ar.TextAnalyzer.Companion.displayName
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -47,6 +49,10 @@ fun ArTranslationScreen(
                     overlayColor = overlayColor,
                     onTextBlocksDetected = { blocks, w, h ->
                         viewModel.onTextBlocksDetected(blocks, w, h)
+                    },
+                    onScriptDetected = { script ->
+                        // AUTO 모드에서 감지된 스크립트 → ViewModel 업데이트 → key() 재생성
+                        viewModel.setSourceScript(script)
                     }
                 )
                 ArControlsOverlay(
@@ -57,7 +63,9 @@ fun ArTranslationScreen(
                 )
                 NetworkBadge(
                     isOnline = uiState.isOnline,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(top = 64.dp, end = 16.dp)
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 64.dp, end = 16.dp)
                 )
             }
             cameraPermissionState.status.shouldShowRationale ->
@@ -75,34 +83,31 @@ private fun CameraPreviewWithOverlay(
     uiState: ArUiState,
     overlayColor: Int,
     onTextBlocksDetected: (List<TextAnalyzer.TextBlock>, Int, Int) -> Unit,
+    onScriptDetected: (TextAnalyzer.Script) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     var overlayViewRef: OverlayView? by remember { mutableStateOf(null) }
-    // 공유 executor — 스크립트 변경 시 재사용
     val analyzerExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
 
     DisposableEffect(Unit) {
         onDispose { analyzerExecutor.shutdown() }
     }
 
-    // 번역 결과 반영 — overlayViewRef는 key() 바깥에 있으므로 항상 최신 뷰를 참조
     LaunchedEffect(uiState.translatedBlocks, uiState.frameWidth, uiState.frameHeight, overlayColor) {
         overlayViewRef?.setOverlayColor(overlayColor)
         overlayViewRef?.updateBlocks(uiState.translatedBlocks, uiState.frameWidth, uiState.frameHeight)
     }
 
-    // key(uiState.sourceScript): 스크립트가 바뀌면 이 블록 전체를 dispose → 재생성
-    // → TextAnalyzer가 올바른 인식기(Japanese/Chinese/Korean/Latin)로 새로 만들어짐
     key(uiState.sourceScript) {
         val currentScript = uiState.sourceScript
 
-        // remember는 key() 내부에서 한 번만 생성 (key 변경 시 새 인스턴스)
         val analyzer = remember {
             TextAnalyzer(
                 script = currentScript,
-                onTextDetected = { blocks, w, h -> onTextBlocksDetected(blocks, w, h) }
+                onTextDetected = { blocks, w, h -> onTextBlocksDetected(blocks, w, h) },
+                onScriptDetected = { detected -> onScriptDetected(detected) }
             )
         }
 
@@ -173,7 +178,7 @@ private fun bindCamera(
     }, ContextCompat.getMainExecutor(context))
 }
 
-// ─── 상단 컨트롤 ──────────────────────────────────────────────────────────────
+// ─── 상단 언어 선택 컨트롤 ────────────────────────────────────────────────────
 
 @Composable
 private fun ArControlsOverlay(
@@ -182,68 +187,120 @@ private fun ArControlsOverlay(
     onSourceScriptChange: (TextAnalyzer.Script) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showTargetPicker by remember { mutableStateOf(false) }
     var showSourcePicker by remember { mutableStateOf(false) }
+    var showTargetPicker by remember { mutableStateOf(false) }
 
     val targetLanguages = listOf(
-        "ko" to "→ 한국어",
-        "en" to "→ 영어",
-        "ja" to "→ 일본어",
-        "zh" to "→ 중국어",
-        "fr" to "→ 프랑스어",
-        "de" to "→ 독일어",
-        "es" to "→ 스페인어"
+        "ko" to "한국어",
+        "en" to "영어",
+        "ja" to "일본어",
+        "zh" to "중국어",
+        "fr" to "프랑스어",
+        "de" to "독일어",
+        "es" to "스페인어"
     )
 
-    val sourceScripts = listOf(
-        TextAnalyzer.Script.LATIN    to "영·불·독·스",
+    val sourceOptions = listOf(
+        TextAnalyzer.Script.AUTO     to "🔍 자동 감지",
         TextAnalyzer.Script.JAPANESE to "일본어",
         TextAnalyzer.Script.CHINESE  to "중국어",
-        TextAnalyzer.Script.KOREAN   to "한국어"
+        TextAnalyzer.Script.KOREAN   to "한국어",
+        TextAnalyzer.Script.LATIN    to "영어 계열 (영·불·독·스)"
     )
 
+    val sourceLabel = uiState.sourceScript.displayName()
+    val targetLabel = targetLanguages.find { it.first == uiState.targetLanguage }?.second ?: "한국어"
+
+    // ── "일본어 → 한국어" 통합 언어 선택 바 ──────────────────────────────────
     Row(
         modifier = modifier
-            .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 원문 스크립트 (인식기 선택)
-        FilledTonalButton(onClick = { showSourcePicker = true }) {
-            Icon(Icons.Default.TextFields, contentDescription = null,
-                modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(4.dp))
-            Text(sourceScripts.find { it.first == uiState.sourceScript }?.second ?: "영·불·독·스",
-                style = MaterialTheme.typography.labelMedium)
-        }
+        Surface(
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.88f),
+            tonalElevation = 2.dp
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+            ) {
+                // 원문 언어 (왼쪽)
+                TextButton(
+                    onClick = { showSourcePicker = true },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        sourceLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(2.dp))
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
-        // 번역 목표 언어
-        FilledTonalButton(onClick = { showTargetPicker = true }) {
-            Icon(Icons.Default.Language, contentDescription = null,
-                modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(4.dp))
-            Text(targetLanguages.find { it.first == uiState.targetLanguage }?.second ?: "→ 한국어",
-                style = MaterialTheme.typography.labelMedium)
+                // 화살표 구분자
+                Icon(
+                    Icons.Default.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+
+                // 번역 대상 언어 (오른쪽)
+                TextButton(
+                    onClick = { showTargetPicker = true },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        targetLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.width(2.dp))
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
         }
     }
 
-    // 원문 스크립트 선택 다이얼로그
+    // ── 원문 언어 선택 다이얼로그 ─────────────────────────────────────────────
     if (showSourcePicker) {
         AlertDialog(
             onDismissRequest = { showSourcePicker = false },
-            title = { Text("원문 언어 선택") },
+            title = { Text("원문 언어") },
             text = {
                 Column {
-                    Text("인식할 원문 언어를 선택하면 더 정확하게 인식됩니다.",
+                    Text(
+                        "카메라로 읽을 텍스트의 언어를 선택하세요.\n'자동 감지'는 일본어·중국어·영어 계열을 자동으로 인식합니다.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     Spacer(Modifier.height(8.dp))
-                    sourceScripts.forEach { (script, label) ->
+                    sourceOptions.forEach { (script, label) ->
                         TextButton(
                             onClick = { onSourceScriptChange(script); showSourcePicker = false },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text(label) }
+                        ) {
+                            Text(
+                                label,
+                                color = if (script == uiState.sourceScript)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             },
@@ -251,18 +308,26 @@ private fun ArControlsOverlay(
         )
     }
 
-    // 번역 목표 언어 선택 다이얼로그
+    // ── 번역 대상 언어 선택 다이얼로그 ───────────────────────────────────────
     if (showTargetPicker) {
         AlertDialog(
             onDismissRequest = { showTargetPicker = false },
-            title = { Text("번역할 언어 선택") },
+            title = { Text("번역 대상 언어") },
             text = {
                 Column {
                     targetLanguages.forEach { (code, name) ->
                         TextButton(
                             onClick = { onTargetLanguageChange(code); showTargetPicker = false },
                             modifier = Modifier.fillMaxWidth()
-                        ) { Text(name) }
+                        ) {
+                            Text(
+                                name,
+                                color = if (code == uiState.targetLanguage)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
                 }
             },
@@ -305,7 +370,9 @@ private fun CameraPermissionRequest(onRequest: () -> Unit) {
 @Composable
 private fun CameraPermissionRationale(onRequest: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
