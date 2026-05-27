@@ -64,14 +64,14 @@ class TranslationRepositoryImpl @Inject constructor(
     ): TranslationResult {
         val cached = translationCacheDao.find(text, src, targetLanguage)
         if (cached != null) {
-            // DB 캐시 히트 — Cloud 품질을 오프라인에서 재사용
+            // DB 캐시 히트 — Cloud 번역 결과를 저장해 둔 것이므로 isOffline=false
             return TranslationResult.Success(
                 translatedText = cached.translatedText,
                 sourceLanguage = src,
-                isOffline = true    // 오프라인 재사용임을 UI에 표시
+                isOffline = false
             )
         }
-        // ML Kit 폴백 (단어는 되지만 문장 품질 낮음)
+        // ML Kit 폴백: 모델 없으면 에러 반환 (isOffline=true)
         return mlKitDataSource.translate(text, targetLanguage, src)
     }
 
@@ -123,6 +123,9 @@ class TranslationRepositoryImpl @Inject constructor(
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val network = cm.activeNetwork ?: return false
         val caps = cm.getNetworkCapabilities(network) ?: return false
-        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        // INTERNET: 네트워크가 인터넷 접근을 선언함
+        // VALIDATED: 실제로 인터넷 연결이 확인됨 (캡티브 포털 등 false positive 방지)
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+               caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 }
