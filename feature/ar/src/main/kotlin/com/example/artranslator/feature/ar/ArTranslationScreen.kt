@@ -47,9 +47,6 @@ fun ArTranslationScreen(
                     overlayColor = overlayColor,
                     onTextBlocksDetected = { blocks, w, h ->
                         viewModel.onTextBlocksDetected(blocks, w, h)
-                    },
-                    onScriptChange = { script ->
-                        viewModel.setSourceScript(script)
                     }
                 )
                 ArControlsOverlay(
@@ -78,68 +75,71 @@ private fun CameraPreviewWithOverlay(
     uiState: ArUiState,
     overlayColor: Int,
     onTextBlocksDetected: (List<TextAnalyzer.TextBlock>, Int, Int) -> Unit,
-    onScriptChange: (TextAnalyzer.Script) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     var overlayViewRef: OverlayView? by remember { mutableStateOf(null) }
-    val textAnalyzerRef = remember { mutableStateOf<TextAnalyzer?>(null) }
+    // 공유 executor — 스크립트 변경 시 재사용
     val analyzerExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
 
     DisposableEffect(Unit) {
-        onDispose {
-            analyzerExecutor.shutdown()
-            textAnalyzerRef.value?.shutdown()
-        }
+        onDispose { analyzerExecutor.shutdown() }
     }
 
-    // 스크립트 변경 시 인식기 전환
-    LaunchedEffect(uiState.sourceScript) {
-        textAnalyzerRef.value?.setScript(uiState.sourceScript)
-    }
-
-    // 번역 결과 반영
+    // 번역 결과 반영 — overlayViewRef는 key() 바깥에 있으므로 항상 최신 뷰를 참조
     LaunchedEffect(uiState.translatedBlocks, uiState.frameWidth, uiState.frameHeight, overlayColor) {
         overlayViewRef?.setOverlayColor(overlayColor)
         overlayViewRef?.updateBlocks(uiState.translatedBlocks, uiState.frameWidth, uiState.frameHeight)
     }
 
-    androidx.compose.ui.viewinterop.AndroidView(
-        factory = { ctx ->
-            val container = android.widget.FrameLayout(ctx).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            }
-            val previewView = PreviewView(ctx).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-                scaleType = PreviewView.ScaleType.FILL_CENTER
-            }
-            val overlayView = OverlayView(ctx).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
-            }
-            overlayViewRef = overlayView
-            container.addView(previewView)
-            container.addView(overlayView)
+    // key(uiState.sourceScript): 스크립트가 바뀌면 이 블록 전체를 dispose → 재생성
+    // → TextAnalyzer가 올바른 인식기(Japanese/Chinese/Korean/Latin)로 새로 만들어짐
+    key(uiState.sourceScript) {
+        val currentScript = uiState.sourceScript
 
-            val analyzer = TextAnalyzer { blocks, w, h ->
-                onTextBlocksDetected(blocks, w, h)
-            }
-            textAnalyzerRef.value = analyzer
+        // remember는 key() 내부에서 한 번만 생성 (key 변경 시 새 인스턴스)
+        val analyzer = remember {
+            TextAnalyzer(
+                script = currentScript,
+                onTextDetected = { blocks, w, h -> onTextBlocksDetected(blocks, w, h) }
+            )
+        }
 
-            bindCamera(ctx, lifecycleOwner, previewView, analyzerExecutor, analyzer)
-            container
-        },
-        modifier = Modifier.fillMaxSize()
-    )
+        DisposableEffect(Unit) {
+            onDispose { analyzer.shutdown() }
+        }
+
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory = { ctx ->
+                val container = android.widget.FrameLayout(ctx).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                }
+                val previewView = PreviewView(ctx).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    scaleType = PreviewView.ScaleType.FILL_CENTER
+                }
+                val overlayView = OverlayView(ctx).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                }
+                overlayViewRef = overlayView
+                container.addView(previewView)
+                container.addView(overlayView)
+                bindCamera(ctx, lifecycleOwner, previewView, analyzerExecutor, analyzer)
+                container
+            },
+            modifier = Modifier.fillMaxSize()
+        )
+    }
 }
 
 private fun bindCamera(
