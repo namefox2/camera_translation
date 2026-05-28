@@ -49,13 +49,10 @@ fun VoiceInterpreterScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp)
-            .padding(top = 16.dp, bottom = 8.dp),
+            .padding(horizontal = 20.dp)
+            .padding(top = 8.dp, bottom = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("실시간 음성 통역", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(8.dp))
-
         // ─── 통신비밀보호법 고지 (법적 의무) ───────────────────────────────────
         Surface(
             color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
@@ -290,7 +287,7 @@ private fun MicButton(
 
     Box(contentAlignment = Alignment.Center) {
         if (isListening) {
-            Canvas(modifier = Modifier.size(110.dp)) {
+            Canvas(modifier = Modifier.size(96.dp)) {
                 drawCircle(
                     color = buttonColor.copy(alpha = 0.3f),
                     radius = size.minDimension / 2 * scale
@@ -300,7 +297,7 @@ private fun MicButton(
 
         Button(
             onClick = onClick,
-            modifier = Modifier.size(80.dp),
+            modifier = Modifier.size(68.dp),
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
             contentPadding = PaddingValues(0.dp)

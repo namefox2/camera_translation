@@ -79,8 +79,12 @@ class AzureTranslationDataSource @Inject constructor(
         apiKey: String
     ): TranslationResult {
         if (apiKey.isBlank()) {
-            Log.w(TAG, "AZURE_TRANSLATION_KEY is blank — check local.properties")
-            return TranslationResult.Error("Azure 번역 API 키가 설정되지 않았습니다. local.properties에 AZURE_TRANSLATION_KEY를 추가해 주세요.")
+            Log.w(TAG, "AZURE_TRANSLATION_KEY is blank — check local.properties and do Clean+Rebuild")
+            return TranslationResult.Error(
+                "Azure API 키가 비어 있습니다.\n" +
+                "local.properties에 AZURE_TRANSLATION_KEY=발급받은키 를 추가한 뒤\n" +
+                "Android Studio → Build → Clean Project → Rebuild Project 를 실행하세요."
+            )
         }
         Log.d(TAG, "translate(): keyLen=${apiKey.length}, region='$region'")
 
