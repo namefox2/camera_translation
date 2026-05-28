@@ -104,8 +104,15 @@ class CloudTranslationDataSource @Inject constructor() {
                 sourceLanguage = translation.detectedSourceLanguage ?: sourceLanguage,
                 isOffline = false
             )
+        } catch (e: retrofit2.HttpException) {
+            when (e.code()) {
+                400, 401, 403 -> TranslationResult.Error(
+                    "API 키 오류 — local.properties에 TRANSLATION_API_KEY를 설정해 주세요."
+                )
+                else -> TranslationResult.Error("Cloud 번역 서버 오류 (HTTP ${e.code()})")
+            }
         } catch (e: Exception) {
-            TranslationResult.Error("Cloud 번역 오류: ${e.localizedMessage}", e)
+            TranslationResult.Error("네트워크 오류: ${e.localizedMessage}", e)
         }
     }
 }

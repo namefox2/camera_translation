@@ -37,20 +37,22 @@ class TranslationRepositoryImpl @Inject constructor(
         val src = sourceLanguage ?: identifyLanguage(text) ?: "en"
 
         return if (isOnline()) {
-            // ── 온라인: Cloud Translation이 항상 1순위 ──────────────────────────
+            // ── 온라인: Cloud Translation만 사용 (ML Kit 폴백 없음) ─────────────
             val result = cloudDataSource.translate(text, targetLanguage, src, apiKey)
             if (result is TranslationResult.Success) {
-                // Cloud 성공 → DB에 영구 저장 (오프라인 재사용)
                 saveToCache(text, src, targetLanguage, result.translatedText)
                 result
             } else {
-                // Cloud 오류 → DB 캐시 확인 → ML Kit 순으로 폴백
-                lookupCacheOrMlKit(text, src, targetLanguage)
+                // Cloud 실패 → DB 캐시만 확인 (온라인에서는 ML Kit 자동 사용 안 함)
+                val cached = translationCacheDao.find(text, src, targetLanguage)
+                if (cached != null) {
+                    TranslationResult.Success(cached.translatedText, src, isOffline = false)
+                } else {
+                    result  // Cloud 에러 그대로 반환 (침묵 폴백 없음)
+                }
             }
         } else {
-            // ── 오프라인: 데이터 없을 때만 ─────────────────────────────────────
-            // 1순위: DB 캐시 (온라인에서 번역해둔 Cloud 품질 결과)
-            // 2순위: ML Kit 온디바이스 (단어 위주, 문장 품질 낮음)
+            // ── 오프라인: DB 캐시 → ML Kit (팩 다운로드된 경우만) ───────────────
             lookupCacheOrMlKit(text, src, targetLanguage)
         }
     }

@@ -40,8 +40,8 @@ class MlKitTranslationDataSource @Inject constructor() {
 
             val translator = Translation.getClient(options)
             try {
-                val noRestriction = com.google.mlkit.common.model.DownloadConditions.Builder().build()
-                translator.downloadModelIfNeeded(noRestriction).await()
+                // downloadModelIfNeeded 제거 — 자동 다운로드 없이 번역 시도
+                // 언어팩이 없으면 예외 발생 → 사용자에게 다운로드 안내
                 val result = translator.translate(text).await()
                 cache.put(cacheKey, result)
                 TranslationResult.Success(result, sourceLanguage, isOffline = true)
@@ -49,7 +49,7 @@ class MlKitTranslationDataSource @Inject constructor() {
                 translator.close()
             }
         } catch (e: Exception) {
-            TranslationResult.Error("ML Kit 번역 오류: ${e.localizedMessage}", e)
+            TranslationResult.Error("오프라인 번역 불가 — '언어' 탭에서 언어팩을 다운로드해 주세요.", e)
         }
     }
 
