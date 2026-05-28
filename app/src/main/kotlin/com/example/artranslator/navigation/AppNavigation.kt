@@ -135,9 +135,9 @@ fun AppNavigation(
             )
         },
         bottomBar = {
-            Column {
-                BannerAdView()
-                if (isTopLevel) {
+            if (isTopLevel) {
+                Column {
+                    BannerAdView()
                     NavigationBar {
                         navItems.forEach { item ->
                             NavigationBarItem(
