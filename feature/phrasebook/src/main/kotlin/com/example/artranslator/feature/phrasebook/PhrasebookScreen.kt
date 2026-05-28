@@ -112,7 +112,7 @@ private fun AddPhraseDialog(
     autoTranslatedText: String,
     isAutoTranslating: Boolean,
     onOriginalTextChanged: (String) -> Unit,
-    onConfirm: (original: String, translated: String, pronunciation: String) -> Unit,
+    onConfirm: (original: String, translated: String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var original by remember { mutableStateOf("") }
@@ -162,7 +162,7 @@ private fun AddPhraseDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(original, translated, "") },
+                onClick = { onConfirm(original, translated) },
                 enabled = original.isNotBlank() && translated.isNotBlank()
             ) { Text("추가") }
         },
