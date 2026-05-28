@@ -9,3 +9,4 @@
 .cxx
 *.keystore
 local.properties
+.claude/
