@@ -327,6 +327,23 @@ class CameraTranslateViewModel @Inject constructor(
 
     // ─── 좌표 변환 & 크롭 ─────────────────────────────────────────────────────
 
+    fun retranslate() {
+        val result = (_uiState.value.step as? CaptureStep.Result) ?: return
+        viewModelScope.launch {
+            if (!quotaManager.consume()) {
+                pendingOcrText = result.recognizedText
+                pendingBitmap = result.bitmap
+                pendingSelStart = result.selStart
+                pendingSelEnd = result.selEnd
+                _uiState.update { it.copy(showQuotaExhausted = true, remainingToday = 0) }
+                _effects.emit(CameraTranslateEffect.ShowRewardedAd)
+                return@launch
+            }
+            _uiState.update { it.copy(isProcessing = true, error = null) }
+            doTranslate(result.recognizedText, result.bitmap, result.selStart, result.selEnd)
+        }
+    }
+
     private fun cropBitmap(
         bitmap: Bitmap,
         start: Offset,
@@ -345,10 +362,12 @@ class CameraTranslateViewModel @Inject constructor(
         fun toX(sx: Float) = ((sx - offsetX) / scale).coerceIn(0f, bitmap.width.toFloat())
         fun toY(sy: Float) = ((sy - offsetY) / scale).coerceIn(0f, bitmap.height.toFloat())
 
-        val left   = toX(min(start.x, end.x)).toInt()
-        val top    = toY(min(start.y, end.y)).toInt()
-        val right  = toX(max(start.x, end.x)).toInt()
-        val bottom = toY(max(start.y, end.y)).toInt()
+        // 터치 정밀도 보정: 선택 영역을 bitmap 좌표 기준 30px씩 확장
+        val pad = 30
+        val left   = (toX(min(start.x, end.x)).toInt() - pad).coerceAtLeast(0)
+        val top    = (toY(min(start.y, end.y)).toInt() - pad).coerceAtLeast(0)
+        val right  = (toX(max(start.x, end.x)).toInt() + pad).coerceIn(0, bitmap.width)
+        val bottom = (toY(max(start.y, end.y)).toInt() + pad).coerceIn(0, bitmap.height)
         val w = (right - left).coerceAtLeast(1)
         val h = (bottom - top).coerceAtLeast(1)
 

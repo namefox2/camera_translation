@@ -109,7 +109,9 @@ fun CameraTranslateScreen(
             )
             is CaptureStep.Result -> ResultStep(
                 result = step,
+                isProcessing = uiState.isProcessing,
                 overlayColor = overlayColor,
+                onRetranslate = viewModel::retranslate,
                 onRetake = viewModel::retake,
                 onReselect = { viewModel.reselect(step.bitmap) }
             )
@@ -606,7 +608,9 @@ private fun SelectionStep(
 @Composable
 private fun ResultStep(
     result: CaptureStep.Result,
+    isProcessing: Boolean,
     overlayColor: Int,
+    onRetranslate: () -> Unit,
     onRetake: () -> Unit,
     onReselect: () -> Unit
 ) {
@@ -692,15 +696,45 @@ private fun ResultStep(
 
                     Spacer(Modifier.height(20.dp))
 
-                    // 하단 버튼
+                    // 다시 번역 (메인 액션)
+                    Button(
+                        onClick = onRetranslate,
+                        enabled = !isProcessing,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (isProcessing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = null,
+                                modifier = Modifier.size(16.dp))
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Text("다시 번역")
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // 보조 액션
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = onRetake, modifier = Modifier.weight(1f)) {
+                        OutlinedButton(
+                            onClick = onRetake,
+                            enabled = !isProcessing,
+                            modifier = Modifier.weight(1f)
+                        ) {
                             Icon(Icons.Default.Replay, contentDescription = null,
                                 modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
                             Text("다시 찍기")
                         }
-                        Button(onClick = onReselect, modifier = Modifier.weight(1f)) {
+                        OutlinedButton(
+                            onClick = onReselect,
+                            enabled = !isProcessing,
+                            modifier = Modifier.weight(1f)
+                        ) {
                             Icon(Icons.Default.SelectAll, contentDescription = null,
                                 modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(4.dp))
