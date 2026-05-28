@@ -14,7 +14,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -118,24 +123,27 @@ fun AppNavigation(
             )
         },
         bottomBar = {
-            if (isTopLevel) {
-                NavigationBar {
-                    navItems.forEach { item ->
-                        NavigationBarItem(
-                            icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = { Text(item.label, maxLines = 1,
-                                style = MaterialTheme.typography.labelSmall) },
-                            selected = currentRoute == item.route,
-                            onClick = {
-                                navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+            Column {
+                BannerAdView()
+                if (isTopLevel) {
+                    NavigationBar {
+                        navItems.forEach { item ->
+                            NavigationBarItem(
+                                icon = { Icon(item.icon, contentDescription = item.label) },
+                                label = { Text(item.label, maxLines = 1,
+                                    style = MaterialTheme.typography.labelSmall) },
+                                selected = currentRoute == item.route,
+                                onClick = {
+                                    navController.navigate(item.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
@@ -260,11 +268,15 @@ private fun SettingsScreen(
                                             context as android.app.Activity, product
                                         )
                                     },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
                                 ) {
                                     Text(
                                         product.label,
-                                        style = MaterialTheme.typography.labelMedium
+                                        style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Visible,
+                                        softWrap = false
                                     )
                                 }
                             }
@@ -377,4 +389,18 @@ private fun ThemeType.displayName() = when (this) {
     ThemeType.BUSINESS     -> "비즈니스 테마"
     ThemeType.TRAVEL       -> "여행 테마"
     ThemeType.STUDY_ABROAD -> "유학 테마"
+}
+
+@Composable
+private fun BannerAdView() {
+    AndroidView(
+        factory = { context ->
+            AdView(context).apply {
+                setAdSize(AdSize.BANNER)
+                adUnitId = "ca-app-pub-3940256099942544/6300978111" // 테스트 배너 ID
+                loadAd(AdRequest.Builder().build())
+            }
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
 }

@@ -21,11 +21,11 @@ private const val CACHE_EVICT = 100
 @Singleton
 class TranslationRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val deepLDataSource: DeepLTranslationDataSource,
+    private val azureDataSource: AzureTranslationDataSource,
     private val mlKitDataSource: MlKitTranslationDataSource,
     private val languagePackManager: LanguagePackManager,
     private val translationCacheDao: TranslationCacheDao,
-    @Named("deepl_api_key") private val apiKey: String
+    @Named("azure_translation_key") private val apiKey: String
 ) : TranslationRepository {
 
     override suspend fun translate(
@@ -36,7 +36,7 @@ class TranslationRepositoryImpl @Inject constructor(
         val src = sourceLanguage ?: identifyLanguage(text) ?: "en"
 
         return if (isOnline()) {
-            val result = deepLDataSource.translate(text, targetLanguage, src, apiKey)
+            val result = azureDataSource.translate(text, targetLanguage, src, apiKey)
             if (result is TranslationResult.Success) {
                 saveToCache(text, src, targetLanguage, result.translatedText)
                 result

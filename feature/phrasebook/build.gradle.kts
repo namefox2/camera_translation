@@ -31,6 +31,7 @@ android {
 dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:database"))
+    implementation(project(":core:translation"))
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

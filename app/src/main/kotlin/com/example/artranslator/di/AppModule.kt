@@ -18,6 +18,6 @@ object AppModule {
      */
     @Provides
     @Singleton
-    @Named("deepl_api_key")
-    fun provideDeepLApiKey(): String = BuildConfig.DEEPL_API_KEY
+    @Named("azure_translation_key")
+    fun provideAzureTranslationKey(): String = BuildConfig.AZURE_TRANSLATION_KEY
 }

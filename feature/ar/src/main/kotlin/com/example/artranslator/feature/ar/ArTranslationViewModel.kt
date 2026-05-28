@@ -45,8 +45,8 @@ class ArTranslationViewModel @Inject constructor(
         frameH: Int
     ) {
         if (_uiState.value.isFrozen) return
-        if (translationJob?.isActive == true) return
         if (frameW <= 0 || frameH <= 0) return
+        translationJob?.cancel()
 
         translationJob = viewModelScope.launch {
             val targetLang = _uiState.value.targetLanguage

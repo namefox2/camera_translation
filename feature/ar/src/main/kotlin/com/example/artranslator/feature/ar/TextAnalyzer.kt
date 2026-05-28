@@ -59,14 +59,19 @@ class TextAnalyzer(
 
     private val isProcessing = AtomicBoolean(false)
     @Volatile private var lastAnalyzedTimestamp = 0L
-    // 1000 ms: Cloud API 번역 완료 대기 (300ms 이하면 번역 Job이 항상 취소됨)
-    private val debounceMs = 1000L
-    // AUTO: 스크립트 확정 후 onScriptDetected를 다시 부르지 않도록
+    private val debounceMs = 600L
     private val autoDetected = AtomicBoolean(false)
+
+    @Volatile var paused = false
+        private set
+
+    fun pause() { paused = true }
+    fun resume() { paused = false; lastAnalyzedTimestamp = 0L }
 
     // ── 분석 ──────────────────────────────────────────────────────────────────
 
     override fun analyze(imageProxy: ImageProxy) {
+        if (paused) { imageProxy.close(); return }
         val currentTime = System.currentTimeMillis()
         if (currentTime - lastAnalyzedTimestamp < debounceMs) {
             imageProxy.close(); return

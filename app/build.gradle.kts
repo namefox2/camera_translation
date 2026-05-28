@@ -30,8 +30,8 @@ android {
         // Inject API key via BuildConfig (never hardcode in source)
         buildConfigField(
             "String",
-            "DEEPL_API_KEY",
-            "\"${localProperties.getProperty("DEEPL_API_KEY", "")}\""
+            "AZURE_TRANSLATION_KEY",
+            "\"${localProperties.getProperty("AZURE_TRANSLATION_KEY", "")}\""
         )
     }
 

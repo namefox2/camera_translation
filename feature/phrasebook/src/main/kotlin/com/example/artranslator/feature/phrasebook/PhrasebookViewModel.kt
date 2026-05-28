@@ -7,10 +7,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.artranslator.core.database.dao.PhraseDao
 import com.example.artranslator.core.database.entity.DownloadedLanguageEntity
 import com.example.artranslator.core.database.entity.PhraseEntity
+import com.example.artranslator.core.translation.TranslationRepository
+import com.example.artranslator.core.translation.model.TranslationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import java.util.Locale
 import javax.inject.Inject
 
@@ -42,7 +44,9 @@ data class PhrasebookUiState(
     val categories: List<PhraseCategory> = emptyList(),
     val selectedCategoryIndex: Int = 0,
     val phrases: List<PhraseItem> = emptyList(),
-    val showAddDialog: Boolean = false
+    val showAddDialog: Boolean = false,
+    val isAutoTranslating: Boolean = false,
+    val autoTranslatedText: String = ""
 )
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
@@ -50,13 +54,15 @@ data class PhrasebookUiState(
 @HiltViewModel
 class PhrasebookViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val phraseDao: PhraseDao
+    private val phraseDao: PhraseDao,
+    private val translationRepository: TranslationRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PhrasebookUiState())
     val uiState: StateFlow<PhrasebookUiState> = _uiState.asStateFlow()
 
     private var tts: TextToSpeech? = null
+    private var autoTranslateJob: Job? = null
 
     init {
         tts = TextToSpeech(context) { }
@@ -111,8 +117,39 @@ class PhrasebookViewModel @Inject constructor(
         loadPhrases(lang.code, category.id)
     }
 
-    fun openAddDialog() = _uiState.update { it.copy(showAddDialog = true) }
-    fun closeAddDialog() = _uiState.update { it.copy(showAddDialog = false) }
+    fun openAddDialog() {
+        _uiState.update { it.copy(showAddDialog = true, autoTranslatedText = "", isAutoTranslating = false) }
+    }
+
+    fun closeAddDialog() {
+        autoTranslateJob?.cancel()
+        _uiState.update { it.copy(showAddDialog = false, autoTranslatedText = "", isAutoTranslating = false) }
+    }
+
+    fun onOriginalTextChanged(text: String) {
+        autoTranslateJob?.cancel()
+        if (text.length < 2) {
+            _uiState.update { it.copy(autoTranslatedText = "", isAutoTranslating = false) }
+            return
+        }
+        val lang = _uiState.value.downloadedLanguages
+            .getOrNull(_uiState.value.selectedLanguageIndex) ?: return
+
+        _uiState.update { it.copy(isAutoTranslating = true) }
+        autoTranslateJob = viewModelScope.launch {
+            delay(500)
+            val result = translationRepository.translate(text, lang.code, "ko")
+            _uiState.update { state ->
+                when (result) {
+                    is TranslationResult.Success -> state.copy(
+                        autoTranslatedText = result.translatedText,
+                        isAutoTranslating = false
+                    )
+                    else -> state.copy(isAutoTranslating = false)
+                }
+            }
+        }
+    }
 
     fun addPhrase(originalText: String, translatedText: String, pronunciation: String) {
         val lang = _uiState.value.downloadedLanguages
@@ -144,6 +181,7 @@ class PhrasebookViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        autoTranslateJob?.cancel()
         tts?.stop()
         tts?.shutdown()
     }
@@ -156,16 +194,16 @@ class PhrasebookViewModel @Inject constructor(
         isCustom = (category == "user_custom")
     )
     private fun String.toCategoryDisplayName() = when (this) {
-        "greeting"    -> "기본 인사"
-        "restaurant"  -> "쇼핑/식당"
+        "greeting"      -> "기본 인사"
+        "restaurant"    -> "쇼핑/식당"
         "accommodation" -> "숙박"
-        "transport"   -> "교통"
-        "emergency"   -> "응급"
-        "numbers"     -> "숫자"
-        "meeting"     -> "미팅/비즈니스"
-        "campus"      -> "캠퍼스/학교"
-        "user_custom" -> "나만의 문장"
-        else          -> this
+        "transport"     -> "교통"
+        "emergency"     -> "응급"
+        "numbers"       -> "숫자"
+        "meeting"       -> "미팅/비즈니스"
+        "campus"        -> "캠퍼스/학교"
+        "user_custom"   -> "나만의 문장"
+        else            -> this
     }
 
     companion object {

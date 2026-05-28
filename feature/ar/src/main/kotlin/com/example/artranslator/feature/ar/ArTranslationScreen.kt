@@ -101,6 +101,7 @@ private fun CameraPreviewWithOverlay(
     val lifecycleOwner = LocalLifecycleOwner.current
 
     var overlayViewRef: OverlayView? by remember { mutableStateOf(null) }
+    var analyzerRef: TextAnalyzer? by remember { mutableStateOf(null) }
     val analyzerExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
 
     DisposableEffect(Unit) {
@@ -110,6 +111,10 @@ private fun CameraPreviewWithOverlay(
     LaunchedEffect(uiState.translatedBlocks, uiState.frameWidth, uiState.frameHeight, overlayColor) {
         overlayViewRef?.setOverlayColor(overlayColor)
         overlayViewRef?.updateBlocks(uiState.translatedBlocks, uiState.frameWidth, uiState.frameHeight)
+    }
+
+    LaunchedEffect(uiState.isFrozen) {
+        if (uiState.isFrozen) analyzerRef?.pause() else analyzerRef?.resume()
     }
 
     key(uiState.sourceScript) {
@@ -123,8 +128,10 @@ private fun CameraPreviewWithOverlay(
             )
         }
 
+        androidx.compose.runtime.SideEffect { analyzerRef = analyzer }
+
         DisposableEffect(Unit) {
-            onDispose { analyzer.shutdown() }
+            onDispose { analyzerRef = null; analyzer.shutdown() }
         }
 
         androidx.compose.ui.viewinterop.AndroidView(
@@ -173,6 +180,7 @@ private fun bindCamera(
             it.setSurfaceProvider(previewView.surfaceProvider)
         }
         val imageAnalysis = ImageAnalysis.Builder()
+            .setTargetResolution(android.util.Size(960, 720))
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
             .also { it.setAnalyzer(executor, textAnalyzer) }
@@ -208,7 +216,7 @@ private fun FreezeButton(
         contentColor = Color.White
     ) {
         Icon(
-            imageVector = if (isFrozen) Icons.Default.LockOpen else Icons.Default.Lock,
+            imageVector = if (isFrozen) Icons.Default.Lock else Icons.Default.LockOpen,
             contentDescription = if (isFrozen) "번역 재개" else "화면 고정"
         )
     }
