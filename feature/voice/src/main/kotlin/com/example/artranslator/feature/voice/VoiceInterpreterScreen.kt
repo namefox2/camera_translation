@@ -290,7 +290,7 @@ private fun MicButton(
 
     Box(contentAlignment = Alignment.Center) {
         if (isListening) {
-            Canvas(modifier = Modifier.size(140.dp)) {
+            Canvas(modifier = Modifier.size(110.dp)) {
                 drawCircle(
                     color = buttonColor.copy(alpha = 0.3f),
                     radius = size.minDimension / 2 * scale
@@ -300,7 +300,7 @@ private fun MicButton(
 
         Button(
             onClick = onClick,
-            modifier = Modifier.size(96.dp),
+            modifier = Modifier.size(80.dp),
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
             contentPadding = PaddingValues(0.dp)
