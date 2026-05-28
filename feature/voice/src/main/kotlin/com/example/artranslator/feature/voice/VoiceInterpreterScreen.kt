@@ -315,7 +315,7 @@ private fun MicButton(
                 Icon(
                     if (isListening) Icons.Default.Stop else Icons.Default.Mic,
                     contentDescription = if (isListening) "중지" else "녹음 시작",
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(32.dp)
                 )
             }
         }
