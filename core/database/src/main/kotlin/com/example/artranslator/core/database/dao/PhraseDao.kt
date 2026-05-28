@@ -28,6 +28,9 @@ interface PhraseDao {
     @Delete
     suspend fun deletePhrase(phrase: PhraseEntity)
 
+    @Query("DELETE FROM phrases WHERE id = :id")
+    suspend fun deletePhraseById(id: Long)
+
     @Query("DELETE FROM phrases WHERE languageCode = :languageCode")
     suspend fun deletePhrasesForLanguage(languageCode: String)
 

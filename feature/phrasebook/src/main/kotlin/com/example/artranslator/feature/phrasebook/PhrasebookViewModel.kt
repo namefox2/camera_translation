@@ -21,7 +21,8 @@ data class PhraseItem(
     val originalText: String,
     val translatedText: String,
     val pronunciation: String,
-    val languageCode: String
+    val languageCode: String,
+    val isCustom: Boolean = false
 )
 
 data class PhraseCategory(
@@ -40,7 +41,8 @@ data class PhrasebookUiState(
     val selectedLanguageIndex: Int = 0,
     val categories: List<PhraseCategory> = emptyList(),
     val selectedCategoryIndex: Int = 0,
-    val phrases: List<PhraseItem> = emptyList()
+    val phrases: List<PhraseItem> = emptyList(),
+    val showAddDialog: Boolean = false
 )
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
@@ -76,7 +78,9 @@ class PhrasebookViewModel @Inject constructor(
     private fun loadCategories(languageCode: String) {
         viewModelScope.launch {
             phraseDao.getCategoriesForLanguage(languageCode).collect { rawCategories ->
-                val categories = rawCategories.map { PhraseCategory(it, it.toCategoryDisplayName()) }
+                val categories = rawCategories
+                    .sortedBy { categoryOrder.indexOf(it).takeIf { i -> i >= 0 } ?: Int.MAX_VALUE }
+                    .map { PhraseCategory(it, it.toCategoryDisplayName()) }
                 _uiState.update { it.copy(categories = categories, selectedCategoryIndex = 0) }
                 if (categories.isNotEmpty()) {
                     loadPhrases(languageCode, categories[0].id)
@@ -107,6 +111,31 @@ class PhrasebookViewModel @Inject constructor(
         loadPhrases(lang.code, category.id)
     }
 
+    fun openAddDialog() = _uiState.update { it.copy(showAddDialog = true) }
+    fun closeAddDialog() = _uiState.update { it.copy(showAddDialog = false) }
+
+    fun addPhrase(originalText: String, translatedText: String, pronunciation: String) {
+        val lang = _uiState.value.downloadedLanguages
+            .getOrNull(_uiState.value.selectedLanguageIndex) ?: return
+        viewModelScope.launch {
+            phraseDao.insertPhrase(
+                PhraseEntity(
+                    languageCode = lang.code,
+                    category = "user_custom",
+                    originalText = originalText.trim(),
+                    translatedText = translatedText.trim(),
+                    pronunciation = pronunciation.trim(),
+                    sortOrder = System.currentTimeMillis().toInt()
+                )
+            )
+            closeAddDialog()
+        }
+    }
+
+    fun deletePhrase(phrase: PhraseItem) {
+        viewModelScope.launch { phraseDao.deletePhraseById(phrase.id) }
+    }
+
     fun speakPhrase(phrase: PhraseItem) {
         val locale = Locale.forLanguageTag(phrase.languageCode)
         tts?.language = locale
@@ -122,16 +151,27 @@ class PhrasebookViewModel @Inject constructor(
     // ─── Mappers ─────────────────────────────────────────────────────────────
 
     private fun DownloadedLanguageEntity.toLanguageItem() = LanguageItem(languageCode, displayName, nativeName)
-    private fun PhraseEntity.toPhraseItem() = PhraseItem(id, originalText, translatedText, pronunciation, languageCode)
+    private fun PhraseEntity.toPhraseItem() = PhraseItem(
+        id, originalText, translatedText, pronunciation, languageCode,
+        isCustom = (category == "user_custom")
+    )
     private fun String.toCategoryDisplayName() = when (this) {
-        "greeting" -> "기본 인사"
-        "restaurant" -> "쇼핑/식당"
+        "greeting"    -> "기본 인사"
+        "restaurant"  -> "쇼핑/식당"
         "accommodation" -> "숙박"
-        "transport" -> "교통"
-        "emergency" -> "응급"
-        "numbers" -> "숫자"
-        "meeting" -> "미팅/비즈니스"
-        "campus" -> "캠퍼스/학교"
-        else -> this
+        "transport"   -> "교통"
+        "emergency"   -> "응급"
+        "numbers"     -> "숫자"
+        "meeting"     -> "미팅/비즈니스"
+        "campus"      -> "캠퍼스/학교"
+        "user_custom" -> "나만의 문장"
+        else          -> this
+    }
+
+    companion object {
+        private val categoryOrder = listOf(
+            "greeting", "restaurant", "accommodation", "transport",
+            "emergency", "numbers", "meeting", "campus", "user_custom"
+        )
     }
 }
