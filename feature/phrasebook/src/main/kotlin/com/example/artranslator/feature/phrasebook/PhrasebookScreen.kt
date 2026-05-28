@@ -15,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,8 +98,8 @@ fun PhrasebookScreen(
             autoTranslatedText = uiState.autoTranslatedText,
             isAutoTranslating = uiState.isAutoTranslating,
             onOriginalTextChanged = viewModel::onOriginalTextChanged,
-            onConfirm = { original, translated, pronunciation ->
-                viewModel.addPhrase(original, translated, pronunciation)
+            onConfirm = { original, translated ->
+                viewModel.addPhrase(original, translated, "")
             },
             onDismiss = viewModel::closeAddDialog
         )
@@ -117,14 +116,9 @@ private fun AddPhraseDialog(
     onDismiss: () -> Unit
 ) {
     var original by remember { mutableStateOf("") }
-    var translated by remember { mutableStateOf("") }
-    var pronunciation by remember { mutableStateOf("") }
-
-    // 자동 번역 결과가 오면 번역 필드에 채워줌 (사용자가 이미 직접 수정한 경우는 덮어씌우지 않도록
-    // autoTranslatedText 변경 시에만 반응)
-    LaunchedEffect(autoTranslatedText) {
-        if (autoTranslatedText.isNotBlank()) translated = autoTranslatedText
-    }
+    // null = 사용자가 직접 수정하지 않은 상태 → ViewModel 자동번역 결과를 표시
+    var userEdited by remember { mutableStateOf<String?>(null) }
+    val translated = userEdited ?: autoTranslatedText
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -135,6 +129,7 @@ private fun AddPhraseDialog(
                     value = original,
                     onValueChange = {
                         original = it
+                        userEdited = null  // 원문 바뀌면 자동번역 결과로 복원
                         onOriginalTextChanged(it)
                     },
                     label = { Text("한국어 (원문)") },
@@ -145,7 +140,7 @@ private fun AddPhraseDialog(
                 )
                 OutlinedTextField(
                     value = translated,
-                    onValueChange = { translated = it },
+                    onValueChange = { userEdited = it },
                     label = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("번역 ($targetLanguageName)")
@@ -160,15 +155,6 @@ private fun AddPhraseDialog(
                     },
                     placeholder = { Text("한국어 입력 시 자동 번역") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = pronunciation,
-                    onValueChange = { pronunciation = it },
-                    label = { Text("발음 (선택)") },
-                    placeholder = { Text("발음 표기") },
-                    singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -176,7 +162,7 @@ private fun AddPhraseDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(original, translated, pronunciation) },
+                onClick = { onConfirm(original, translated, "") },
                 enabled = original.isNotBlank() && translated.isNotBlank()
             ) { Text("추가") }
         },

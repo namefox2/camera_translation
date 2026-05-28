@@ -148,6 +148,8 @@ private fun CameraPreviewWithOverlay(
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
                     scaleType = PreviewView.ScaleType.FILL_CENTER
+                    // TextureView 모드로 강제해야 bitmap 캡처가 동작함
+                    implementationMode = PreviewView.ImplementationMode.COMPATIBLE
                 }
                 // 잠금 시 마지막 프레임을 보여줄 ImageView (PreviewView 위, OverlayView 아래)
                 val frozenImageView = android.widget.ImageView(ctx).apply {

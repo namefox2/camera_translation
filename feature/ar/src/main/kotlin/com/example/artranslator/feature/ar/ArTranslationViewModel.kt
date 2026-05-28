@@ -35,6 +35,7 @@ class ArTranslationViewModel @Inject constructor(
 
     private var translationJob: Job? = null
     private val vmCache = HashMap<String, String>(50)
+    private var emptyFrameCount = 0
 
     fun toggleFreeze() {
         _uiState.update { it.copy(isFrozen = !it.isFrozen) }
@@ -49,22 +50,66 @@ class ArTranslationViewModel @Inject constructor(
         if (translationJob?.isActive == true) return
         if (frameW <= 0 || frameH <= 0) return
 
+        val filteredBlocks = blocks.filter { it.text.isNotBlank() && it.boundingBox != null }
+
+        // 텍스트가 없는 프레임이 연속 5회 이상일 때만 오버레이 초기화
+        if (filteredBlocks.isEmpty()) {
+            emptyFrameCount++
+            if (emptyFrameCount >= 5) {
+                emptyFrameCount = 0
+                _uiState.update { it.copy(translatedBlocks = emptyList()) }
+            }
+            return
+        }
+        emptyFrameCount = 0
+
         translationJob = viewModelScope.launch {
             val targetLang = _uiState.value.targetLanguage
             var anyOnline = false
 
-            val translated = supervisorScope {
-                blocks
-                    .filter { it.text.isNotBlank() && it.boundingBox != null }
-                    .map { block ->
-                        async {
-                            val box = block.boundingBox!!
-                            val cacheKey = "${block.text}|$targetLang"
-                            val cached = vmCache[cacheKey]
-                            if (cached != null) {
-                                return@async OverlayView.TranslatedBlock(
+            // 캐시 히트 블록은 즉시 표시
+            val cachedBlocks = filteredBlocks.mapNotNull { block ->
+                val box = block.boundingBox!!
+                val cached = vmCache["${block.text}|$targetLang"] ?: return@mapNotNull null
+                OverlayView.TranslatedBlock(
+                    originalText = block.text,
+                    translatedText = cached,
+                    normRect = android.graphics.RectF(
+                        box.left.toFloat() / frameW,
+                        box.top.toFloat() / frameH,
+                        box.right.toFloat() / frameW,
+                        box.bottom.toFloat() / frameH
+                    )
+                )
+            }
+            if (cachedBlocks.isNotEmpty()) {
+                _uiState.update { it.copy(
+                    translatedBlocks = cachedBlocks,
+                    frameWidth = frameW,
+                    frameHeight = frameH
+                )}
+            }
+
+            // API 번역이 필요한 블록만 비동기 처리
+            val needsApi = filteredBlocks.filter { vmCache["${it.text}|$targetLang"] == null }
+            if (needsApi.isEmpty()) return@launch
+
+            val apiResults = supervisorScope {
+                needsApi.map { block ->
+                    async {
+                        val box = block.boundingBox!!
+                        val result = translationRepository.translate(
+                            text = block.text,
+                            targetLanguage = targetLang
+                        )
+                        when (result) {
+                            is TranslationResult.Success -> {
+                                if (!result.isOffline) anyOnline = true
+                                if (vmCache.size >= 100) vmCache.clear()
+                                vmCache["${block.text}|$targetLang"] = result.translatedText
+                                OverlayView.TranslatedBlock(
                                     originalText = block.text,
-                                    translatedText = cached,
+                                    translatedText = result.translatedText,
                                     normRect = android.graphics.RectF(
                                         box.left.toFloat() / frameW,
                                         box.top.toFloat() / frameH,
@@ -73,39 +118,23 @@ class ArTranslationViewModel @Inject constructor(
                                     )
                                 )
                             }
-                            val result = translationRepository.translate(
-                                text = block.text,
-                                targetLanguage = targetLang
-                            )
-                            when (result) {
-                                is TranslationResult.Success -> {
-                                    if (!result.isOffline) anyOnline = true
-                                    if (vmCache.size >= 100) vmCache.clear()
-                                    vmCache[cacheKey] = result.translatedText
-                                    OverlayView.TranslatedBlock(
-                                        originalText = block.text,
-                                        translatedText = result.translatedText,
-                                        normRect = android.graphics.RectF(
-                                            box.left.toFloat() / frameW,
-                                            box.top.toFloat() / frameH,
-                                            box.right.toFloat() / frameW,
-                                            box.bottom.toFloat() / frameH
-                                        )
-                                    )
-                                }
-                                is TranslationResult.Error -> null
-                                is TranslationResult.QuotaExceeded -> null
-                            }
+                            else -> null
                         }
-                    }.awaitAll().filterNotNull()
+                    }
+                }.awaitAll().filterNotNull()
             }
 
-            _uiState.update { it.copy(
-                translatedBlocks = translated,
-                frameWidth = frameW,
-                frameHeight = frameH,
-                isOnline = if (translated.isEmpty()) it.isOnline else anyOnline
-            )}
+            if (apiResults.isNotEmpty()) {
+                // 캐시 결과와 API 결과를 합쳐 최종 업데이트
+                val allBlocks = (cachedBlocks + apiResults)
+                    .distinctBy { it.originalText }
+                _uiState.update { it.copy(
+                    translatedBlocks = allBlocks,
+                    frameWidth = frameW,
+                    frameHeight = frameH,
+                    isOnline = anyOnline
+                )}
+            }
         }
     }
 

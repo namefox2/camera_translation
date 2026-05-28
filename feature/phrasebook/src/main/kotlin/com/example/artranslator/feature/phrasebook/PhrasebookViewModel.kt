@@ -135,18 +135,22 @@ class PhrasebookViewModel @Inject constructor(
         val lang = _uiState.value.downloadedLanguages
             .getOrNull(_uiState.value.selectedLanguageIndex) ?: return
 
-        _uiState.update { it.copy(isAutoTranslating = true) }
+        _uiState.update { it.copy(isAutoTranslating = true, autoTranslatedText = "") }
         autoTranslateJob = viewModelScope.launch {
-            delay(500)
-            val result = translationRepository.translate(text, lang.code, "ko")
-            _uiState.update { state ->
-                when (result) {
-                    is TranslationResult.Success -> state.copy(
-                        autoTranslatedText = result.translatedText,
-                        isAutoTranslating = false
-                    )
-                    else -> state.copy(isAutoTranslating = false)
+            delay(300)
+            try {
+                val result = translationRepository.translate(text, lang.code, "ko")
+                _uiState.update { state ->
+                    when (result) {
+                        is TranslationResult.Success -> state.copy(
+                            autoTranslatedText = result.translatedText,
+                            isAutoTranslating = false
+                        )
+                        else -> state.copy(isAutoTranslating = false)
+                    }
                 }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isAutoTranslating = false) }
             }
         }
     }
