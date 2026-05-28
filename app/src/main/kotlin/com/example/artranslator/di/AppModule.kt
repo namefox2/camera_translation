@@ -20,4 +20,9 @@ object AppModule {
     @Singleton
     @Named("azure_translation_key")
     fun provideAzureTranslationKey(): String = BuildConfig.AZURE_TRANSLATION_KEY
+
+    @Provides
+    @Singleton
+    @Named("azure_translation_region")
+    fun provideAzureTranslationRegion(): String = BuildConfig.AZURE_TRANSLATION_REGION
 }

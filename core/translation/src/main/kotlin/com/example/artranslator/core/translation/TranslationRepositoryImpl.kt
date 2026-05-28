@@ -41,11 +41,14 @@ class TranslationRepositoryImpl @Inject constructor(
                 saveToCache(text, src, targetLanguage, result.translatedText)
                 result
             } else {
+                // DB 캐시 확인
                 val cached = translationCacheDao.find(text, src, targetLanguage)
                 if (cached != null) {
                     TranslationResult.Success(cached.translatedText, src, isOffline = false)
                 } else {
-                    result
+                    // Azure 실패 시 ML Kit 오프라인으로 폴백 (키 오류·한도 초과 등 포함)
+                    val mlResult = mlKitDataSource.translate(text, targetLanguage, src)
+                    if (mlResult is TranslationResult.Success) mlResult else result
                 }
             }
         } else {

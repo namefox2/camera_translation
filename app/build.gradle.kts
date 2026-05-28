@@ -33,6 +33,11 @@ android {
             "AZURE_TRANSLATION_KEY",
             "\"${localProperties.getProperty("AZURE_TRANSLATION_KEY", "")}\""
         )
+        buildConfigField(
+            "String",
+            "AZURE_TRANSLATION_REGION",
+            "\"${localProperties.getProperty("AZURE_TRANSLATION_REGION", "")}\""
+        )
     }
 
     buildTypes {

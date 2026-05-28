@@ -104,6 +104,10 @@ private fun CameraPreviewWithOverlay(
     var analyzerRef: TextAnalyzer? by remember { mutableStateOf(null) }
     val analyzerExecutor: ExecutorService = remember { Executors.newSingleThreadExecutor() }
 
+    // Preview use case + PreviewView refs for clearSurfaceProvider freeze
+    val previewRef = remember { arrayOfNulls<Preview>(1) }
+    val previewViewRef = remember { arrayOfNulls<PreviewView>(1) }
+
     DisposableEffect(Unit) {
         onDispose { analyzerExecutor.shutdown() }
     }
@@ -114,7 +118,17 @@ private fun CameraPreviewWithOverlay(
     }
 
     LaunchedEffect(uiState.isFrozen) {
-        if (uiState.isFrozen) analyzerRef?.pause() else analyzerRef?.resume()
+        if (uiState.isFrozen) {
+            analyzerRef?.pause()
+            // clearSurfaceProvider() 호출 → TextureView(COMPATIBLE)가 마지막 프레임을 유지
+            previewRef[0]?.clearSurfaceProvider()
+        } else {
+            // setSurfaceProvider() 호출 → 카메라 프리뷰 재개
+            previewViewRef[0]?.let { pv ->
+                previewRef[0]?.setSurfaceProvider(pv.surfaceProvider)
+            }
+            analyzerRef?.resume()
+        }
     }
 
     key(uiState.sourceScript) {
@@ -148,17 +162,8 @@ private fun CameraPreviewWithOverlay(
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
                     scaleType = PreviewView.ScaleType.FILL_CENTER
-                    // TextureView 모드로 강제해야 bitmap 캡처가 동작함
+                    // clearSurfaceProvider 동작에 TextureView 모드 필요
                     implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-                }
-                // 잠금 시 마지막 프레임을 보여줄 ImageView (PreviewView 위, OverlayView 아래)
-                val frozenImageView = android.widget.ImageView(ctx).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                    scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-                    visibility = android.view.View.GONE
                 }
                 val overlayView = OverlayView(ctx).apply {
                     layoutParams = ViewGroup.LayoutParams(
@@ -167,26 +172,13 @@ private fun CameraPreviewWithOverlay(
                     )
                 }
                 overlayViewRef = overlayView
+                previewViewRef[0] = previewView
                 container.addView(previewView)
-                container.addView(frozenImageView)
                 container.addView(overlayView)
-                bindCamera(ctx, lifecycleOwner, previewView, analyzerExecutor, analyzer)
+                previewRef[0] = bindCamera(ctx, lifecycleOwner, previewView, analyzerExecutor, analyzer)
                 container
             },
-            update = { view ->
-                val container = view as android.widget.FrameLayout
-                val previewView = container.getChildAt(0) as PreviewView
-                val frozenImageView = container.getChildAt(1) as android.widget.ImageView
-                if (uiState.isFrozen) {
-                    if (frozenImageView.drawable == null) {
-                        previewView.bitmap?.let { frozenImageView.setImageBitmap(it) }
-                    }
-                    frozenImageView.visibility = android.view.View.VISIBLE
-                } else {
-                    frozenImageView.setImageBitmap(null)
-                    frozenImageView.visibility = android.view.View.GONE
-                }
-            },
+            update = { _ -> /* 오버레이는 LaunchedEffect로 처리 */ },
             modifier = Modifier.fillMaxSize()
         )
     }
@@ -198,13 +190,13 @@ private fun bindCamera(
     previewView: PreviewView,
     executor: ExecutorService,
     textAnalyzer: TextAnalyzer
-) {
+): Preview {
+    val preview = Preview.Builder().build().also {
+        it.setSurfaceProvider(previewView.surfaceProvider)
+    }
     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
     cameraProviderFuture.addListener({
         val cameraProvider = cameraProviderFuture.get()
-        val preview = Preview.Builder().build().also {
-            it.setSurfaceProvider(previewView.surfaceProvider)
-        }
         val imageAnalysis = ImageAnalysis.Builder()
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
@@ -221,6 +213,7 @@ private fun bindCamera(
             e.printStackTrace()
         }
     }, ContextCompat.getMainExecutor(context))
+    return preview
 }
 
 // ─── 화면 고정 버튼 ──────────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Query
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 private interface AzureTranslatorApi {
@@ -21,6 +22,7 @@ private interface AzureTranslatorApi {
         @Query("to") to: String,
         @Query("from") from: String?,
         @Header("Ocp-Apim-Subscription-Key") key: String,
+        @Header("Ocp-Apim-Subscription-Region") region: String,
         @Body body: List<AzureTranslateItem>
     ): List<AzureTranslateResult>
 }
@@ -45,7 +47,9 @@ data class AzureDetectedLanguage(
 )
 
 @Singleton
-class AzureTranslationDataSource @Inject constructor() {
+class AzureTranslationDataSource @Inject constructor(
+    @Named("azure_translation_region") private val region: String
+) {
 
     private val api: AzureTranslatorApi by lazy {
         val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
@@ -82,6 +86,7 @@ class AzureTranslationDataSource @Inject constructor() {
                 to = targetCode,
                 from = sourceCode,
                 key = apiKey,
+                region = region,
                 body = listOf(AzureTranslateItem(text))
             )
             val translation = results.firstOrNull()?.translations?.firstOrNull()
