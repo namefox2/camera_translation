@@ -212,8 +212,8 @@ class PhrasebookViewModel @Inject constructor(
 
     companion object {
         private val categoryOrder = listOf(
-            "greeting", "restaurant", "accommodation", "transport",
-            "emergency", "numbers", "meeting", "campus", "user_custom"
+            "user_custom", "greeting", "restaurant", "accommodation", "transport",
+            "emergency", "numbers", "meeting", "campus"
         )
     }
 }
