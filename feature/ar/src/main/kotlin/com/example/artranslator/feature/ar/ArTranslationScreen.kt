@@ -119,15 +119,18 @@ private fun CameraPreviewWithOverlay(
 
     LaunchedEffect(uiState.isFrozen) {
         if (uiState.isFrozen) {
+            // 프리뷰 중단: setSurfaceProvider(null)로 새 프레임 전송 중지
+            // TextureView(COMPATIBLE 모드)는 GPU 텍스처를 유지해 마지막 프레임이 그대로 보임
+            previewRef[0]?.setSurfaceProvider(ContextCompat.getMainExecutor(context), null)
+            // 잠금 후 2.5초간 ImageAnalysis는 계속 실행 → 화면의 모든 텍스트 번역
+            delay(2500)
             analyzerRef?.pause()
-            // clearSurfaceProvider() 호출 → TextureView(COMPATIBLE)가 마지막 프레임을 유지
-            previewRef[0]?.clearSurfaceProvider()
         } else {
-            // setSurfaceProvider() 호출 → 카메라 프리뷰 재개
+            analyzerRef?.resume()
+            // 프리뷰 재개
             previewViewRef[0]?.let { pv ->
                 previewRef[0]?.setSurfaceProvider(pv.surfaceProvider)
             }
-            analyzerRef?.resume()
         }
     }
 

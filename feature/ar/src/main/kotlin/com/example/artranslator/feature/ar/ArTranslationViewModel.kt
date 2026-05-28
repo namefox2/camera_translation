@@ -46,7 +46,6 @@ class ArTranslationViewModel @Inject constructor(
         frameW: Int,
         frameH: Int
     ) {
-        if (_uiState.value.isFrozen) return
         if (translationJob?.isActive == true) return
         if (frameW <= 0 || frameH <= 0) return
 
