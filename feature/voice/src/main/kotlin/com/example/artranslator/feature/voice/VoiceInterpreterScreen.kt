@@ -330,11 +330,13 @@ private fun LanguagePairRow(
     onSourceChanged: (String) -> Unit,
     onTargetChanged: (String) -> Unit
 ) {
-    val languages = listOf(
-        "ko" to "한국어", "en" to "영어", "ja" to "일본어",
-        "zh" to "중국어", "fr" to "프랑스어", "de" to "독일어",
-        "es" to "스페인어", "th" to "태국어"
-    )
+    val languages = remember {
+        listOf(
+            "ko" to "한국어", "en" to "영어", "ja" to "일본어",
+            "zh" to "중국어", "fr" to "프랑스어", "de" to "독일어",
+            "es" to "스페인어", "th" to "태국어"
+        )
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth(),

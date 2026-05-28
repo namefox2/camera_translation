@@ -258,23 +258,22 @@ private fun ArControlsOverlay(
     var showSourcePicker by remember { mutableStateOf(false) }
     var showTargetPicker by remember { mutableStateOf(false) }
 
-    val targetLanguages = listOf(
-        "ko" to "한국어",
-        "en" to "영어",
-        "ja" to "일본어",
-        "zh" to "중국어",
-        "fr" to "프랑스어",
-        "de" to "독일어",
-        "es" to "스페인어"
-    )
+    val targetLanguages = remember {
+        listOf(
+            "ko" to "한국어", "en" to "영어", "ja" to "일본어",
+            "zh" to "중국어", "fr" to "프랑스어", "de" to "독일어", "es" to "스페인어"
+        )
+    }
 
-    val sourceOptions = listOf(
-        TextAnalyzer.Script.AUTO     to "🔍 자동 감지",
-        TextAnalyzer.Script.JAPANESE to "일본어",
-        TextAnalyzer.Script.CHINESE  to "중국어",
-        TextAnalyzer.Script.KOREAN   to "한국어",
-        TextAnalyzer.Script.LATIN    to "영어 계열 (영·불·독·스)"
-    )
+    val sourceOptions = remember {
+        listOf(
+            TextAnalyzer.Script.AUTO     to "🔍 자동 감지",
+            TextAnalyzer.Script.JAPANESE to "일본어",
+            TextAnalyzer.Script.CHINESE  to "중국어",
+            TextAnalyzer.Script.KOREAN   to "한국어",
+            TextAnalyzer.Script.LATIN    to "영어 계열 (영·불·독·스)"
+        )
+    }
 
     val sourceLabel = uiState.sourceScript.displayName()
     val targetLabel = targetLanguages.find { it.first == uiState.targetLanguage }?.second ?: "한국어"

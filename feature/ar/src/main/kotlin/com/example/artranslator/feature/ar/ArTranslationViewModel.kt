@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.artranslator.core.translation.TranslationRepository
 import com.example.artranslator.core.translation.model.TranslationResult
+import android.util.LruCache
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +35,7 @@ class ArTranslationViewModel @Inject constructor(
     val uiState: StateFlow<ArUiState> = _uiState.asStateFlow()
 
     private var translationJob: Job? = null
-    private val vmCache = HashMap<String, String>(50)
+    private val vmCache = LruCache<String, String>(300)
     private var emptyFrameCount = 0
     private var lastOnlineError: String? = null
 
@@ -107,8 +108,7 @@ class ArTranslationViewModel @Inject constructor(
                                 if (!result.isOffline) {
                                     anyOnline = true
                                     lastOnlineError = null
-                                    if (vmCache.size >= 100) vmCache.clear()
-                                    vmCache["${block.text}|$targetLang"] = result.translatedText
+                                    vmCache.put("${block.text}|$targetLang", result.translatedText)
                                 } else if (result.onlineError != null && lastOnlineError == null) {
                                     lastOnlineError = result.onlineError
                                 }

@@ -19,8 +19,21 @@ import javax.inject.Singleton
 @Singleton
 class MlKitTranslationDataSource @Inject constructor() {
 
-    // LruCache for translation results (key = "text|src|tgt")
-    private val cache = LruCache<String, String>(200)
+    private val resultCache = LruCache<String, String>(200)
+    // Translator 인스턴스를 언어 쌍별로 재사용 (매 호출마다 생성/해제 방지)
+    private val translatorPool = HashMap<String, com.google.mlkit.nl.translate.Translator>(8)
+
+    private fun getTranslator(src: String, tgt: String): com.google.mlkit.nl.translate.Translator {
+        val key = "$src|$tgt"
+        return translatorPool.getOrPut(key) {
+            Translation.getClient(
+                TranslatorOptions.Builder()
+                    .setSourceLanguage(src.toMlKitCode())
+                    .setTargetLanguage(tgt.toMlKitCode())
+                    .build()
+            )
+        }
+    }
 
     suspend fun translate(
         text: String,
@@ -28,26 +41,14 @@ class MlKitTranslationDataSource @Inject constructor() {
         sourceLanguage: String
     ): TranslationResult {
         val cacheKey = "$text|$sourceLanguage|$targetLanguage"
-        cache.get(cacheKey)?.let { cached ->
+        resultCache.get(cacheKey)?.let { cached ->
             return TranslationResult.Success(cached, sourceLanguage, isOffline = true)
         }
 
         return try {
-            val options = TranslatorOptions.Builder()
-                .setSourceLanguage(sourceLanguage.toMlKitCode())
-                .setTargetLanguage(targetLanguage.toMlKitCode())
-                .build()
-
-            val translator = Translation.getClient(options)
-            try {
-                // downloadModelIfNeeded 제거 — 자동 다운로드 없이 번역 시도
-                // 언어팩이 없으면 예외 발생 → 사용자에게 다운로드 안내
-                val result = translator.translate(text).await()
-                cache.put(cacheKey, result)
-                TranslationResult.Success(result, sourceLanguage, isOffline = true)
-            } finally {
-                translator.close()
-            }
+            val result = getTranslator(sourceLanguage, targetLanguage).translate(text).await()
+            resultCache.put(cacheKey, result)
+            TranslationResult.Success(result, sourceLanguage, isOffline = true)
         } catch (e: Exception) {
             TranslationResult.Error("오프라인 번역 불가 — '언어' 탭에서 언어팩을 다운로드해 주세요.", e)
         }

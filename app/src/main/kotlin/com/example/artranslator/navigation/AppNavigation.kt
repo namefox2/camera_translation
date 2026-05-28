@@ -95,13 +95,15 @@ fun AppNavigation(
         }
     }
 
-    val navItems = listOf(
-        NavItem(Routes.VOICE,            "음성 번역",   Icons.Default.Mic),
-        NavItem(Routes.AR,               "AR 번역",    Icons.Default.CameraAlt),
-        NavItem(Routes.CAMERA_TRANSLATE, "카메라 번역", Icons.Default.PhotoCamera),
-        NavItem(Routes.PHRASEBOOK,       themeType.contextTabLabel(), Icons.Default.MenuBook),
-        NavItem(Routes.LANGUAGE,         "언어",        Icons.Default.Download),
-    )
+    val navItems = remember(themeType) {
+        listOf(
+            NavItem(Routes.VOICE,            "음성 번역",   Icons.Default.Mic),
+            NavItem(Routes.AR,               "AR 번역",    Icons.Default.CameraAlt),
+            NavItem(Routes.CAMERA_TRANSLATE, "카메라 번역", Icons.Default.PhotoCamera),
+            NavItem(Routes.PHRASEBOOK,       themeType.contextTabLabel(), Icons.Default.MenuBook),
+            NavItem(Routes.LANGUAGE,         "언어",        Icons.Default.Download),
+        )
+    }
 
     // 하단 탭이 있는 최상위 라우트
     val topLevelRoutes = navItems.map { it.route }.toSet()
@@ -161,13 +163,15 @@ fun AppNavigation(
             }
         }
     ) { innerPadding ->
-        val bubbleColor = themeType.overlayBubbleColor()
-        val overlayColorInt = android.graphics.Color.argb(
-            (bubbleColor.alpha * 255).toInt(),
-            (bubbleColor.red   * 255).toInt(),
-            (bubbleColor.green * 255).toInt(),
-            (bubbleColor.blue  * 255).toInt()
-        )
+        val overlayColorInt = remember(themeType) {
+            val c = themeType.overlayBubbleColor()
+            android.graphics.Color.argb(
+                (c.alpha * 255).toInt(),
+                (c.red   * 255).toInt(),
+                (c.green * 255).toInt(),
+                (c.blue  * 255).toInt()
+            )
+        }
 
         NavHost(
             navController = navController,
