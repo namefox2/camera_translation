@@ -1,34 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-
-    <!-- Camera body -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M72,38H36c-3.3,0 -6,2.7 -6,6v24c0,3.3 2.7,6 6,6h36c3.3,0 6,-2.7 6,-6V44C78,40.7 75.3,38 72,38z" />
-
-    <!-- Camera lens circle -->
-    <path
-        android:fillColor="#534AB7"
-        android:pathData="M54,44m-10,0a10,10 0,1 1,20 0a10,10 0,1 1,-20 0" />
-
-    <!-- Camera notch -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M46,36h12l3,4H43L46,36z" />
-
-    <!-- AR translate indicator dots -->
-    <path
-        android:fillColor="#1D9E75"
-        android:pathData="M36,72l4,-8h4l-4,8H36z" />
-    <path
-        android:fillColor="#1D9E75"
-        android:pathData="M46,72l4,-8h4l-4,8H46z" />
-    <path
-        android:fillColor="#1D9E75"
-        android:pathData="M56,72l4,-8h4l-4,8H56z" />
-
-</vector>
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@mipmap/ic_launcher_foreground"
+    android:gravity="fill" />
