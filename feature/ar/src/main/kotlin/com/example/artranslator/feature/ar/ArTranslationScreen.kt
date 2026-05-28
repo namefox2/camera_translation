@@ -11,7 +11,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material3.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +70,14 @@ fun ArTranslationScreen(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 64.dp, end = 16.dp)
+                )
+                // 화면 고정 / 해제 버튼
+                FreezeButton(
+                    isFrozen = uiState.isFrozen,
+                    onClick = viewModel::toggleFreeze,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 24.dp, end = 16.dp)
                 )
             }
             cameraPermissionState.status.shouldShowRationale ->
@@ -177,6 +188,30 @@ private fun bindCamera(
             e.printStackTrace()
         }
     }, ContextCompat.getMainExecutor(context))
+}
+
+// ─── 화면 고정 버튼 ──────────────────────────────────────────────────────────
+
+@Composable
+private fun FreezeButton(
+    isFrozen: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    FloatingActionButton(
+        onClick = onClick,
+        modifier = modifier,
+        containerColor = if (isFrozen)
+            MaterialTheme.colorScheme.primary
+        else
+            Color.Black.copy(alpha = 0.55f),
+        contentColor = Color.White
+    ) {
+        Icon(
+            imageVector = if (isFrozen) Icons.Default.LockOpen else Icons.Default.Lock,
+            contentDescription = if (isFrozen) "번역 재개" else "화면 고정"
+        )
+    }
 }
 
 // ─── 상단 언어 선택 컨트롤 ────────────────────────────────────────────────────

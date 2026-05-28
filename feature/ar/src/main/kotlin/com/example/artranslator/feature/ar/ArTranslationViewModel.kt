@@ -21,7 +21,8 @@ data class ArUiState(
     val frameHeight: Int = 1,
     val errorMessage: String? = null,
     val isOnline: Boolean = true,
-    val isCameraPermissionGranted: Boolean = false
+    val isCameraPermissionGranted: Boolean = false,
+    val isFrozen: Boolean = false
 )
 
 @HiltViewModel
@@ -34,11 +35,16 @@ class ArTranslationViewModel @Inject constructor(
 
     private var translationJob: Job? = null
 
+    fun toggleFreeze() {
+        _uiState.update { it.copy(isFrozen = !it.isFrozen) }
+    }
+
     fun onTextBlocksDetected(
         blocks: List<TextAnalyzer.TextBlock>,
         frameW: Int,
         frameH: Int
     ) {
+        if (_uiState.value.isFrozen) return
         if (translationJob?.isActive == true) return
         if (frameW <= 0 || frameH <= 0) return
 

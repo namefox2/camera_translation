@@ -5,13 +5,6 @@ import android.graphics.*
 import android.util.AttributeSet
 import android.view.View
 
-/**
- * 카메라 프리뷰 위에 번역 결과를 원본 텍스트 위치에 덮어씌우는 뷰.
- *
- * - PreviewView.ScaleType.FILL_CENTER 좌표 변환 적용
- * - 원본 텍스트 영역을 배경으로 덮고, 번역 텍스트를 그 위에 표시
- * - 텍스트 크기 자동 조정 (영역에 맞게)
- */
 class OverlayView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
@@ -20,42 +13,32 @@ class OverlayView @JvmOverloads constructor(
     data class TranslatedBlock(
         val originalText: String,
         val translatedText: String,
-        /** 정규화 좌표 [0..1] — frameWidth/Height 기준 */
         val normRect: RectF
     )
 
-    // ─── Paint (onDraw 내에서 생성 금지) ──────────────────────────────────────
-
-    /** 원본 텍스트를 덮는 배경 */
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = 0xCC534AB7.toInt()  // 기본 테마색 (setOverlayColor로 변경)
+        color = 0xCC534AB7.toInt()
     }
 
-    /** 배경 테두리 */
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = 1.5f
-        color = 0x88FFFFFF.toInt()
+        color = 0x99FFFFFF.toInt()
     }
 
-    /** 번역 텍스트 */
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         typeface = Typeface.DEFAULT_BOLD
-        textSize = 36f
+        textSize = 40f
         setShadowLayer(3f, 0f, 1f, Color.BLACK)
     }
 
     private val textBounds = Rect()
 
-    // ─── 상태 ─────────────────────────────────────────────────────────────────
-
     @Volatile private var blocks: List<TranslatedBlock> = emptyList()
     private var frameWidth: Int = 1
     private var frameHeight: Int = 1
-
-    // ─── 공개 API ──────────────────────────────────────────────────────────────
 
     fun updateBlocks(newBlocks: List<TranslatedBlock>, frameW: Int = frameWidth, frameH: Int = frameHeight) {
         blocks = newBlocks
@@ -65,7 +48,7 @@ class OverlayView @JvmOverloads constructor(
     }
 
     fun setOverlayColor(color: Int) {
-        bgPaint.color = (color and 0x00FFFFFF) or 0xCC000000.toInt()  // 알파 0xCC 고정
+        bgPaint.color = (color and 0x00FFFFFF) or 0xCC000000.toInt()
         post { invalidate() }
     }
 
@@ -74,59 +57,94 @@ class OverlayView @JvmOverloads constructor(
         post { invalidate() }
     }
 
-    // ─── 그리기 ────────────────────────────────────────────────────────────────
-
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val currentBlocks = blocks
         if (currentBlocks.isEmpty() || width == 0 || height == 0) return
 
-        // ── FILL_CENTER 좌표 변환 ─────────────────────────────────────────────
-        // PreviewView가 FILL_CENTER 모드이므로 동일한 변환 적용
         val scaleX = width.toFloat() / frameWidth
         val scaleY = height.toFloat() / frameHeight
         val scale = maxOf(scaleX, scaleY)
         val displayedW = frameWidth * scale
         val displayedH = frameHeight * scale
-        val offsetX = (width - displayedW) / 2f   // 음수 = 좌우가 잘림
-        val offsetY = (height - displayedH) / 2f  // 음수 = 위아래가 잘림
+        val offsetX = (width - displayedW) / 2f
+        val offsetY = (height - displayedH) / 2f
 
         for (block in currentBlocks) {
-            // normRect → 뷰 좌표
             val vLeft   = block.normRect.left   * displayedW + offsetX
             val vTop    = block.normRect.top    * displayedH + offsetY
             val vRight  = block.normRect.right  * displayedW + offsetX
             val vBottom = block.normRect.bottom * displayedH + offsetY
 
             val viewRect = RectF(vLeft, vTop, vRight, vBottom)
-
-            // 화면 밖 블록 스킵
             if (!viewRect.intersect(0f, 0f, width.toFloat(), height.toFloat())) continue
-            if (viewRect.width() < 6f || viewRect.height() < 6f) continue
+            if (viewRect.width() < 8f || viewRect.height() < 8f) continue
 
             val displayText = block.translatedText.ifBlank { block.originalText }
 
-            // ── 1. 원본 텍스트 영역을 배경으로 덮기 ──────────────────────────
-            canvas.drawRoundRect(viewRect, 6f, 6f, bgPaint)
-            canvas.drawRoundRect(viewRect, 6f, 6f, strokePaint)
+            // 배경 그리기
+            canvas.drawRoundRect(viewRect, 8f, 8f, bgPaint)
+            canvas.drawRoundRect(viewRect, 8f, 8f, strokePaint)
 
-            // ── 2. 텍스트 크기 자동 조정 ─────────────────────────────────────
-            val maxFontH = viewRect.height() * 0.65f
-            textPaint.textSize = maxFontH.coerceIn(13f, 44f)
+            val isVertical = viewRect.height() > viewRect.width() * 1.6f
 
-            // 폭이 넘치면 줄임
-            val measuredW = textPaint.measureText(displayText)
-            val availW = viewRect.width() - 8f
-            if (measuredW > availW && measuredW > 0f) {
-                textPaint.textSize *= (availW / measuredW)
-                textPaint.textSize = textPaint.textSize.coerceAtLeast(11f)
+            if (isVertical) {
+                drawVerticalText(canvas, displayText, viewRect)
+            } else {
+                drawHorizontalText(canvas, displayText, viewRect)
             }
-
-            // ── 3. 번역 텍스트를 영역 중앙에 그리기 ─────────────────────────
-            textPaint.getTextBounds(displayText, 0, displayText.length, textBounds)
-            val textX = viewRect.left + (viewRect.width() - textPaint.measureText(displayText)) / 2f
-            val textY = viewRect.centerY() + textBounds.height() / 2f - textPaint.descent()
-            canvas.drawText(displayText, textX, textY, textPaint)
         }
+    }
+
+    /**
+     * 세로로 긴 블록 (일본어·중국어 세로쓰기 등): 캔버스를 -90° 회전해서 텍스트 출력.
+     * 회전 후 가용 폭 = 블록 높이, 가용 높이 = 블록 폭.
+     */
+    private fun drawVerticalText(canvas: Canvas, text: String, rect: RectF) {
+        val cx = rect.centerX()
+        val cy = rect.centerY()
+
+        canvas.save()
+        canvas.rotate(-90f, cx, cy)
+
+        // 회전 공간에서 가로폭 = 원래 높이, 세로폭 = 원래 너비
+        val availW = rect.height() - 8f
+        val availH = rect.width()
+
+        textPaint.textSize = (availH * 0.65f).coerceIn(18f, 56f)
+
+        val measuredW = textPaint.measureText(text)
+        if (measuredW > availW && measuredW > 0f) {
+            textPaint.textSize *= availW / measuredW
+            textPaint.textSize = textPaint.textSize.coerceAtLeast(16f)
+        }
+
+        textPaint.getTextBounds(text, 0, text.length, textBounds)
+        val textX = cx - textPaint.measureText(text) / 2f
+        val textY = cy + textBounds.height() / 2f - textPaint.descent()
+        canvas.drawText(text, textX, textY, textPaint)
+
+        canvas.restore()
+    }
+
+    /**
+     * 가로형 블록: 단일 행 기준으로 폭에 맞게 폰트 크기 조정.
+     */
+    private fun drawHorizontalText(canvas: Canvas, text: String, rect: RectF) {
+        val availW = rect.width() - 10f
+        val availH = rect.height()
+
+        textPaint.textSize = (availH * 0.60f).coerceIn(18f, 56f)
+
+        val measuredW = textPaint.measureText(text)
+        if (measuredW > availW && measuredW > 0f) {
+            textPaint.textSize *= availW / measuredW
+            textPaint.textSize = textPaint.textSize.coerceAtLeast(16f)
+        }
+
+        textPaint.getTextBounds(text, 0, text.length, textBounds)
+        val textX = rect.left + (rect.width() - textPaint.measureText(text)) / 2f
+        val textY = rect.centerY() + textBounds.height() / 2f - textPaint.descent()
+        canvas.drawText(text, textX, textY, textPaint)
     }
 }
