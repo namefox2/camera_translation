@@ -78,12 +78,7 @@ fun ThemeType.overlayBubbleColor(): Color = when (this) {
  * Returns the tab label for the context-specific tab (5th tab).
  * Each theme provides a different name / context.
  */
-fun ThemeType.contextTabLabel(): String = when (this) {
-    ThemeType.DEFAULT -> "회화집"
-    ThemeType.BUSINESS -> "비즈"
-    ThemeType.TRAVEL -> "여행"
-    ThemeType.STUDY_ABROAD -> "학교"
-}
+fun ThemeType.contextTabLabel(): String = "회화"
 
 @Composable
 fun ARTranslatorTheme(

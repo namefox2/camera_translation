@@ -93,7 +93,8 @@ fun CameraTranslateScreen(
                 overlayColor = overlayColor,
                 onCaptured = { bitmap, rotation -> viewModel.onPhotoCaptured(bitmap, rotation) },
                 onLanguageChange = viewModel::setTargetLanguage,
-                onScriptChange = viewModel::setSourceScript
+                onScriptChange = viewModel::setSourceScript,
+                onSwap = viewModel::swapLanguages
             )
             is CaptureStep.Selecting -> SelectionStep(
                 bitmap = step.bitmap,
@@ -193,7 +194,8 @@ private fun CameraPreviewStep(
     overlayColor: Int,
     onCaptured: (Bitmap, Int) -> Unit,
     onLanguageChange: (String) -> Unit,
-    onScriptChange: (TextAnalyzer.Script) -> Unit
+    onScriptChange: (TextAnalyzer.Script) -> Unit,
+    onSwap: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -292,13 +294,23 @@ private fun CameraPreviewStep(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    // 화살표 구분자
-                    Icon(
-                        Icons.Default.ArrowForward,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
+                    // 언어 교환 버튼 (AUTO 모드일 때 비활성)
+                    val canSwap = sourceScript != TextAnalyzer.Script.AUTO
+                    IconButton(
+                        onClick = onSwap,
+                        enabled = canSwap,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.SwapHoriz,
+                            contentDescription = "언어 교환",
+                            modifier = Modifier.size(16.dp),
+                            tint = if (canSwap)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                        )
+                    }
                     // 번역 대상 언어 (오른쪽)
                     TextButton(
                         onClick = { showLangPicker = true },

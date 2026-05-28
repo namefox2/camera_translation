@@ -92,6 +92,28 @@ class ArTranslationViewModel @Inject constructor(
     fun setSourceScript(script: TextAnalyzer.Script) =
         _uiState.update { it.copy(sourceScript = script) }
 
+    fun swapLanguages() {
+        val state = _uiState.value
+        val newTarget = state.sourceScript.toLanguageCode() ?: return
+        val newScript = state.targetLanguage.toScript()
+        _uiState.update { it.copy(sourceScript = newScript, targetLanguage = newTarget) }
+    }
+
+    private fun TextAnalyzer.Script.toLanguageCode(): String? = when (this) {
+        TextAnalyzer.Script.JAPANESE -> "ja"
+        TextAnalyzer.Script.CHINESE  -> "zh"
+        TextAnalyzer.Script.KOREAN   -> "ko"
+        TextAnalyzer.Script.LATIN    -> "en"
+        TextAnalyzer.Script.AUTO     -> null
+    }
+
+    private fun String.toScript(): TextAnalyzer.Script = when (this) {
+        "ja" -> TextAnalyzer.Script.JAPANESE
+        "zh" -> TextAnalyzer.Script.CHINESE
+        "ko" -> TextAnalyzer.Script.KOREAN
+        else -> TextAnalyzer.Script.LATIN
+    }
+
     fun setCameraPermissionGranted(granted: Boolean) =
         _uiState.update { it.copy(isCameraPermissionGranted = granted) }
 

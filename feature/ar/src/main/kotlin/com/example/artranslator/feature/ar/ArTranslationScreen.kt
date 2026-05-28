@@ -59,6 +59,7 @@ fun ArTranslationScreen(
                     uiState = uiState,
                     onTargetLanguageChange = viewModel::setTargetLanguage,
                     onSourceScriptChange = viewModel::setSourceScript,
+                    onSwapLanguages = viewModel::swapLanguages,
                     modifier = Modifier.align(Alignment.TopCenter)
                 )
                 NetworkBadge(
@@ -185,6 +186,7 @@ private fun ArControlsOverlay(
     uiState: ArUiState,
     onTargetLanguageChange: (String) -> Unit,
     onSourceScriptChange: (TextAnalyzer.Script) -> Unit,
+    onSwapLanguages: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showSourcePicker by remember { mutableStateOf(false) }
@@ -245,13 +247,23 @@ private fun ArControlsOverlay(
                     )
                 }
 
-                // 화살표 구분자
-                Icon(
-                    Icons.Default.ArrowForward,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
+                // 언어 교환 버튼 (AUTO 모드일 때 비활성)
+                val canSwap = uiState.sourceScript != TextAnalyzer.Script.AUTO
+                IconButton(
+                    onClick = onSwapLanguages,
+                    enabled = canSwap,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        Icons.Default.SwapHoriz,
+                        contentDescription = "언어 교환",
+                        modifier = Modifier.size(16.dp),
+                        tint = if (canSwap)
+                            MaterialTheme.colorScheme.primary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                    )
+                }
 
                 // 번역 대상 언어 (오른쪽)
                 TextButton(

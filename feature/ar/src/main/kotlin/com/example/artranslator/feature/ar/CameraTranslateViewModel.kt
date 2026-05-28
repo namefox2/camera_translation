@@ -231,6 +231,28 @@ class CameraTranslateViewModel @Inject constructor(
 
     fun setSourceScript(script: TextAnalyzer.Script) = _uiState.update { it.copy(sourceScript = script) }
 
+    fun swapLanguages() {
+        val state = _uiState.value
+        val newTarget = state.sourceScript.toLanguageCode() ?: return
+        val newScript = state.targetLanguage.toScript()
+        _uiState.update { it.copy(sourceScript = newScript, targetLanguage = newTarget) }
+    }
+
+    private fun TextAnalyzer.Script.toLanguageCode(): String? = when (this) {
+        TextAnalyzer.Script.JAPANESE -> "ja"
+        TextAnalyzer.Script.CHINESE  -> "zh"
+        TextAnalyzer.Script.KOREAN   -> "ko"
+        TextAnalyzer.Script.LATIN    -> "en"
+        TextAnalyzer.Script.AUTO     -> null
+    }
+
+    private fun String.toScript(): TextAnalyzer.Script = when (this) {
+        "ja" -> TextAnalyzer.Script.JAPANESE
+        "zh" -> TextAnalyzer.Script.CHINESE
+        "ko" -> TextAnalyzer.Script.KOREAN
+        else -> TextAnalyzer.Script.LATIN
+    }
+
     /**
      * AUTO 모드: Japanese 인식기로 프로브 → Unicode 분포로 스크립트 감지 → 필요시 올바른 인식기로 재인식.
      * 수동 선택 모드: 지정된 인식기 1회 실행.
