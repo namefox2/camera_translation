@@ -36,6 +36,7 @@ class ArTranslationViewModel @Inject constructor(
     private var translationJob: Job? = null
     private val vmCache = HashMap<String, String>(50)
     private var emptyFrameCount = 0
+    private var lastOnlineError: String? = null
 
     fun toggleFreeze() {
         _uiState.update { it.copy(isFrozen = !it.isFrozen) }
@@ -105,8 +106,11 @@ class ArTranslationViewModel @Inject constructor(
                             is TranslationResult.Success -> {
                                 if (!result.isOffline) {
                                     anyOnline = true
+                                    lastOnlineError = null
                                     if (vmCache.size >= 100) vmCache.clear()
                                     vmCache["${block.text}|$targetLang"] = result.translatedText
+                                } else if (result.onlineError != null && lastOnlineError == null) {
+                                    lastOnlineError = result.onlineError
                                 }
                                 OverlayView.TranslatedBlock(
                                     originalText = block.text,
@@ -126,14 +130,14 @@ class ArTranslationViewModel @Inject constructor(
             }
 
             if (apiResults.isNotEmpty()) {
-                // 캐시 결과와 API 결과를 합쳐 최종 업데이트
                 val allBlocks = (cachedBlocks + apiResults)
                     .distinctBy { it.originalText }
                 _uiState.update { it.copy(
                     translatedBlocks = allBlocks,
                     frameWidth = frameW,
                     frameHeight = frameH,
-                    isOnline = anyOnline
+                    isOnline = anyOnline,
+                    errorMessage = if (anyOnline) null else lastOnlineError
                 )}
             }
         }

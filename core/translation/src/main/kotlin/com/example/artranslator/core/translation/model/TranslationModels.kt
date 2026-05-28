@@ -31,7 +31,8 @@ sealed class TranslationResult {
     data class Success(
         val translatedText: String,
         val sourceLanguage: String?,
-        val isOffline: Boolean
+        val isOffline: Boolean,
+        val onlineError: String? = null
     ) : TranslationResult()
 
     data class Error(val message: String, val throwable: Throwable? = null) : TranslationResult()

@@ -96,9 +96,9 @@ fun AppNavigation(
     }
 
     val navItems = listOf(
+        NavItem(Routes.VOICE,            "음성 번역",   Icons.Default.Mic),
         NavItem(Routes.AR,               "AR 번역",    Icons.Default.CameraAlt),
         NavItem(Routes.CAMERA_TRANSLATE, "카메라 번역", Icons.Default.PhotoCamera),
-        NavItem(Routes.VOICE,            "음성 번역",   Icons.Default.Mic),
         NavItem(Routes.PHRASEBOOK,       themeType.contextTabLabel(), Icons.Default.MenuBook),
         NavItem(Routes.LANGUAGE,         "언어",        Icons.Default.Download),
     )
@@ -171,7 +171,7 @@ fun AppNavigation(
 
         NavHost(
             navController = navController,
-            startDestination = Routes.AR,
+            startDestination = Routes.VOICE,
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Routes.AR) {

@@ -68,6 +68,7 @@ fun ArTranslationScreen(
                 )
                 NetworkBadge(
                     isOnline = uiState.isOnline,
+                    errorMessage = uiState.errorMessage,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 64.dp, end = 16.dp)
@@ -416,18 +417,38 @@ private fun ArControlsOverlay(
 // ─── 기타 컴포넌트 ────────────────────────────────────────────────────────────
 
 @Composable
-private fun NetworkBadge(isOnline: Boolean, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        color = if (isOnline) MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f)
-                else          MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
-        shape = MaterialTheme.shapes.small
-    ) {
-        Text(
-            text = if (isOnline) "온라인" else "오프라인",
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-        )
+private fun NetworkBadge(
+    isOnline: Boolean,
+    errorMessage: String? = null,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.End) {
+        Surface(
+            color = if (isOnline) MaterialTheme.colorScheme.secondary.copy(alpha = 0.85f)
+                    else          MaterialTheme.colorScheme.error.copy(alpha = 0.85f),
+            shape = MaterialTheme.shapes.small
+        ) {
+            Text(
+                text = if (isOnline) "온라인" else "오프라인",
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
+        if (!isOnline && errorMessage != null) {
+            Spacer(Modifier.height(4.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.92f),
+                shape = RoundedCornerShape(6.dp)
+            ) {
+                Text(
+                    text = errorMessage,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                    lineHeight = MaterialTheme.typography.labelSmall.lineHeight
+                )
+            }
+        }
     }
 }
 

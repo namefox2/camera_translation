@@ -48,7 +48,9 @@ class TranslationRepositoryImpl @Inject constructor(
                 } else {
                     // Azure 실패 시 ML Kit 오프라인으로 폴백 (키 오류·한도 초과 등 포함)
                     val mlResult = mlKitDataSource.translate(text, targetLanguage, src)
-                    if (mlResult is TranslationResult.Success) mlResult else result
+                    if (mlResult is TranslationResult.Success)
+                        mlResult.copy(onlineError = (result as? TranslationResult.Error)?.message)
+                    else result
                 }
             }
         } else {
