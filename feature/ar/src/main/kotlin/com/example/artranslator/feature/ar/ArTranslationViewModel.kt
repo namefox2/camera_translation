@@ -103,9 +103,11 @@ class ArTranslationViewModel @Inject constructor(
                         )
                         when (result) {
                             is TranslationResult.Success -> {
-                                if (!result.isOffline) anyOnline = true
-                                if (vmCache.size >= 100) vmCache.clear()
-                                vmCache["${block.text}|$targetLang"] = result.translatedText
+                                if (!result.isOffline) {
+                                    anyOnline = true
+                                    if (vmCache.size >= 100) vmCache.clear()
+                                    vmCache["${block.text}|$targetLang"] = result.translatedText
+                                }
                                 OverlayView.TranslatedBlock(
                                     originalText = block.text,
                                     translatedText = result.translatedText,
