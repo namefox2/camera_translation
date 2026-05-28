@@ -49,7 +49,8 @@ fun VoiceInterpreterScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(horizontal = 24.dp)
+            .padding(top = 16.dp, bottom = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("실시간 음성 통역", style = MaterialTheme.typography.headlineMedium)
@@ -91,15 +92,15 @@ fun VoiceInterpreterScreen(
             onTargetChanged = viewModel::setTargetLanguage
         )
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(16.dp))
 
         // Speaking text
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 100.dp)
+                .heightIn(min = 80.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(12.dp)) {
                 Text("인식된 텍스트", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(4.dp))
@@ -110,25 +111,25 @@ fun VoiceInterpreterScreen(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
 
         // Arrow down
         Icon(Icons.Default.ArrowDownward, contentDescription = null,
             tint = MaterialTheme.colorScheme.primary)
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
 
         // Translated text
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 100.dp),
+                .heightIn(min = 80.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.primaryContainer
             )
         ) {
             Row(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(12.dp),
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
@@ -137,7 +138,6 @@ fun VoiceInterpreterScreen(
                             color = MaterialTheme.colorScheme.primary)
                         if (uiState.translatedText.isNotEmpty()) {
                             Spacer(Modifier.width(6.dp))
-                            // 번역 엔진 뱃지
                             Surface(
                                 shape = MaterialTheme.shapes.extraSmall,
                                 color = if (uiState.isOfflineTranslation)
@@ -162,7 +162,6 @@ fun VoiceInterpreterScreen(
                         text = uiState.translatedText.ifEmpty { "번역이 여기에 표시됩니다" },
                         style = MaterialTheme.typography.bodyLarge
                     )
-                    // 온디바이스 번역 시 품질 경고
                     if (uiState.isOfflineTranslation && uiState.translatedText.isNotEmpty()) {
                         Spacer(Modifier.height(4.dp))
                         Text(
@@ -180,9 +179,8 @@ fun VoiceInterpreterScreen(
             }
         }
 
-        // Remaining quota display
         if (uiState.remainingToday <= 20) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
                 "오늘 번역 가능 횟수: ${uiState.remainingToday}회",
                 style = MaterialTheme.typography.labelSmall,
@@ -213,12 +211,12 @@ fun VoiceInterpreterScreen(
         }
 
         uiState.errorMessage?.let { error ->
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
             Text(error, color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall)
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(8.dp))
     }
 
     // Quota exhausted dialog
@@ -292,8 +290,7 @@ private fun MicButton(
 
     Box(contentAlignment = Alignment.Center) {
         if (isListening) {
-            // Pulse ring
-            Canvas(modifier = Modifier.size(100.dp)) {
+            Canvas(modifier = Modifier.size(140.dp)) {
                 drawCircle(
                     color = buttonColor.copy(alpha = 0.3f),
                     radius = size.minDimension / 2 * scale
@@ -303,14 +300,14 @@ private fun MicButton(
 
         Button(
             onClick = onClick,
-            modifier = Modifier.size(72.dp),
+            modifier = Modifier.size(96.dp),
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
             contentPadding = PaddingValues(0.dp)
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(36.dp),
                     color = Color.White,
                     strokeWidth = 2.dp
                 )
@@ -318,7 +315,7 @@ private fun MicButton(
                 Icon(
                     if (isListening) Icons.Default.Stop else Icons.Default.Mic,
                     contentDescription = if (isListening) "중지" else "녹음 시작",
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(48.dp)
                 )
             }
         }
