@@ -149,6 +149,15 @@ private fun CameraPreviewWithOverlay(
                     )
                     scaleType = PreviewView.ScaleType.FILL_CENTER
                 }
+                // 잠금 시 마지막 프레임을 보여줄 ImageView (PreviewView 위, OverlayView 아래)
+                val frozenImageView = android.widget.ImageView(ctx).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                    visibility = android.view.View.GONE
+                }
                 val overlayView = OverlayView(ctx).apply {
                     layoutParams = ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -157,9 +166,24 @@ private fun CameraPreviewWithOverlay(
                 }
                 overlayViewRef = overlayView
                 container.addView(previewView)
+                container.addView(frozenImageView)
                 container.addView(overlayView)
                 bindCamera(ctx, lifecycleOwner, previewView, analyzerExecutor, analyzer)
                 container
+            },
+            update = { view ->
+                val container = view as android.widget.FrameLayout
+                val previewView = container.getChildAt(0) as PreviewView
+                val frozenImageView = container.getChildAt(1) as android.widget.ImageView
+                if (uiState.isFrozen) {
+                    if (frozenImageView.drawable == null) {
+                        previewView.bitmap?.let { frozenImageView.setImageBitmap(it) }
+                    }
+                    frozenImageView.visibility = android.view.View.VISIBLE
+                } else {
+                    frozenImageView.setImageBitmap(null)
+                    frozenImageView.visibility = android.view.View.GONE
+                }
             },
             modifier = Modifier.fillMaxSize()
         )

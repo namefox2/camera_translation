@@ -34,6 +34,7 @@ class ArTranslationViewModel @Inject constructor(
     val uiState: StateFlow<ArUiState> = _uiState.asStateFlow()
 
     private var translationJob: Job? = null
+    private val vmCache = HashMap<String, String>(50)
 
     fun toggleFreeze() {
         _uiState.update { it.copy(isFrozen = !it.isFrozen) }
@@ -45,8 +46,8 @@ class ArTranslationViewModel @Inject constructor(
         frameH: Int
     ) {
         if (_uiState.value.isFrozen) return
+        if (translationJob?.isActive == true) return
         if (frameW <= 0 || frameH <= 0) return
-        translationJob?.cancel()
 
         translationJob = viewModelScope.launch {
             val targetLang = _uiState.value.targetLanguage
@@ -58,6 +59,20 @@ class ArTranslationViewModel @Inject constructor(
                     .map { block ->
                         async {
                             val box = block.boundingBox!!
+                            val cacheKey = "${block.text}|$targetLang"
+                            val cached = vmCache[cacheKey]
+                            if (cached != null) {
+                                return@async OverlayView.TranslatedBlock(
+                                    originalText = block.text,
+                                    translatedText = cached,
+                                    normRect = android.graphics.RectF(
+                                        box.left.toFloat() / frameW,
+                                        box.top.toFloat() / frameH,
+                                        box.right.toFloat() / frameW,
+                                        box.bottom.toFloat() / frameH
+                                    )
+                                )
+                            }
                             val result = translationRepository.translate(
                                 text = block.text,
                                 targetLanguage = targetLang
@@ -65,6 +80,8 @@ class ArTranslationViewModel @Inject constructor(
                             when (result) {
                                 is TranslationResult.Success -> {
                                     if (!result.isOffline) anyOnline = true
+                                    if (vmCache.size >= 100) vmCache.clear()
+                                    vmCache[cacheKey] = result.translatedText
                                     OverlayView.TranslatedBlock(
                                         originalText = block.text,
                                         translatedText = result.translatedText,

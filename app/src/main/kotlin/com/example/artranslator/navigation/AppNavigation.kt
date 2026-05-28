@@ -27,6 +27,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.artranslator.DonationViewModel
+import com.example.artranslator.HowToUseScreen
 import com.example.artranslator.core.ui.theme.*
 import com.example.artranslator.feature.ar.ArTranslationScreen
 import com.example.artranslator.feature.ar.CameraTranslateScreen
@@ -48,6 +49,7 @@ object Routes {
     const val PHRASEBOOK       = "phrasebook"
     const val LANGUAGE         = "language"
     const val SETTINGS         = "settings"
+    const val HOW_TO_USE       = "how_to_use"
     const val PRIVACY_POLICY   = "privacy_policy"
     const val TERMS_OF_SERVICE = "terms_of_service"
     const val OSS_LICENSES     = "oss_licenses"
@@ -65,6 +67,7 @@ private fun routeTitle(route: String?, themeType: ThemeType): String = when (rou
     Routes.PHRASEBOOK       -> themeType.contextTabLabel()
     Routes.LANGUAGE         -> "언어 관리"
     Routes.SETTINGS         -> "설정"
+    Routes.HOW_TO_USE       -> "사용 방법"
     Routes.PRIVACY_POLICY   -> "개인정보처리방침"
     Routes.TERMS_OF_SERVICE -> "서비스 이용약관"
     Routes.OSS_LICENSES     -> "오픈소스 라이선스"
@@ -82,6 +85,15 @@ fun AppNavigation(
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val context = LocalContext.current
+
+    // 첫 실행 시 사용 방법 화면으로 이동
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("has_seen_welcome", false)) {
+            navController.navigate(Routes.HOW_TO_USE)
+        }
+    }
 
     val navItems = listOf(
         NavItem(Routes.AR,               "AR 번역",    Icons.Default.CameraAlt),
@@ -184,9 +196,19 @@ fun AppNavigation(
                 SettingsScreen(
                     currentTheme = themeType,
                     onThemeChange = onThemeChange,
+                    onHowToUse        = { navController.navigate(Routes.HOW_TO_USE) },
                     onPrivacyPolicy   = { navController.navigate(Routes.PRIVACY_POLICY) },
                     onTermsOfService  = { navController.navigate(Routes.TERMS_OF_SERVICE) },
                     onOssLicenses     = { navController.navigate(Routes.OSS_LICENSES) }
+                )
+            }
+            composable(Routes.HOW_TO_USE) {
+                HowToUseScreen(
+                    onStart = {
+                        context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                            .edit().putBoolean("has_seen_welcome", true).apply()
+                        navController.popBackStack()
+                    }
                 )
             }
             composable(Routes.PRIVACY_POLICY) {
@@ -209,6 +231,7 @@ fun AppNavigation(
 private fun SettingsScreen(
     currentTheme: ThemeType,
     onThemeChange: (ThemeType) -> Unit,
+    onHowToUse: () -> Unit,
     onPrivacyPolicy: () -> Unit,
     onTermsOfService: () -> Unit,
     onOssLicenses: () -> Unit
@@ -301,6 +324,17 @@ private fun SettingsScreen(
                     )
                     Spacer(Modifier.height(8.dp))
                 }
+            }
+
+            // ─ 도움말 섹션 ────────────────────────────────────────────────────
+            item {
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+                Text("도움말", style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                LegalMenuItem(Icons.Default.HelpOutline, "사용 방법", onHowToUse)
             }
 
             // ─ 법적 고지 섹션 ──────────────────────────────────────────────────
