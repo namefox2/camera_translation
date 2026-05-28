@@ -30,8 +30,8 @@ android {
         // Inject API key via BuildConfig (never hardcode in source)
         buildConfigField(
             "String",
-            "TRANSLATION_API_KEY",
-            "\"${localProperties.getProperty("TRANSLATION_API_KEY", "")}\""
+            "DEEPL_API_KEY",
+            "\"${localProperties.getProperty("DEEPL_API_KEY", "")}\""
         )
     }
 
@@ -96,6 +96,9 @@ dependencies {
 
     // DataStore (for theme preferences)
     implementation(libs.androidx.datastore.preferences)
+
+    // AdMob
+    implementation(libs.play.services.ads)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)

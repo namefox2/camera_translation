@@ -1,10 +1,13 @@
 package com.example.artranslator
 
 import android.app.Application
+import com.google.android.gms.ads.MobileAds
 import dagger.hilt.android.HiltAndroidApp
 
-/**
- * Application class annotated with @HiltAndroidApp to trigger Hilt's code generation.
- */
 @HiltAndroidApp
-class ARTranslatorApp : Application()
+class ARTranslatorApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        MobileAds.initialize(this)
+    }
+}

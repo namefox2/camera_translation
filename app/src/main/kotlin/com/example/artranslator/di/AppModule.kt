@@ -13,11 +13,11 @@ import javax.inject.Singleton
 object AppModule {
 
     /**
-     * Google Cloud Translation API 키를 Named 바인딩으로 제공합니다.
+     * DeepL Free API 키를 Named 바인딩으로 제공합니다.
      * 키는 local.properties → BuildConfig를 통해 주입되며, 소스코드에 하드코딩하지 않습니다.
      */
     @Provides
     @Singleton
-    @Named("translation_api_key")
-    fun provideTranslationApiKey(): String = BuildConfig.TRANSLATION_API_KEY
+    @Named("deepl_api_key")
+    fun provideDeepLApiKey(): String = BuildConfig.DEEPL_API_KEY
 }

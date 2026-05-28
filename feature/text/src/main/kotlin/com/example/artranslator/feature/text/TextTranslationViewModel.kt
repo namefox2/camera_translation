@@ -96,6 +96,9 @@ class TextTranslationViewModel @Inject constructor(
                 is TranslationResult.Error -> _uiState.update {
                     it.copy(isLoading = false, errorMessage = result.message)
                 }
+                is TranslationResult.QuotaExceeded -> _uiState.update {
+                    it.copy(isLoading = false, errorMessage = "오늘 번역 횟수를 모두 사용했습니다. 광고를 시청하면 추가로 사용할 수 있어요.")
+                }
             }
         }
     }

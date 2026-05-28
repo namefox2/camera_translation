@@ -35,6 +35,7 @@ sealed class TranslationResult {
     ) : TranslationResult()
 
     data class Error(val message: String, val throwable: Throwable? = null) : TranslationResult()
+    object QuotaExceeded : TranslationResult()
 }
 
 /**

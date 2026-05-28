@@ -24,6 +24,7 @@ ksp = "2.0.0-1.0.22"
 coil = "2.7.0"
 lottie = "6.4.1"
 accompanist = "0.34.0"
+play-services-ads = "23.3.0"
 
 [libraries]
 # AndroidX Core
@@ -91,6 +92,9 @@ lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", versio
 
 # Accompanist
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
+
+# AdMob
+play-services-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "play-services-ads" }
 
 # Testing
 junit = { group = "junit", name = "junit", version = "4.13.2" }

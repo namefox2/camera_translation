@@ -71,6 +71,7 @@ class ArTranslationViewModel @Inject constructor(
                                     )
                                 }
                                 is TranslationResult.Error -> null
+                                is TranslationResult.QuotaExceeded -> null
                             }
                         }
                     }.awaitAll().filterNotNull()

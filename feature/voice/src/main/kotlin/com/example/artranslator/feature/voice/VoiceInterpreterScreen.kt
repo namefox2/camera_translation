@@ -1,6 +1,7 @@
 package com.example.artranslator.feature.voice
 
 import android.Manifest
+import android.app.Activity
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
@@ -12,11 +13,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.artranslator.core.translation.TranslationQuotaManager
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.rewarded.RewardedAd
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -25,6 +32,19 @@ fun VoiceInterpreterScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val micPermission = rememberPermissionState(Manifest.permission.RECORD_AUDIO)
+    val context = LocalContext.current
+
+    // Collect one-shot effects (e.g. show rewarded ad)
+    LaunchedEffect(Unit) {
+        viewModel.effects.collect { effect ->
+            when (effect) {
+                is VoiceEffect.ShowRewardedAd -> {
+                    val activity = context as? Activity
+                    loadAndShowRewardedAd(activity) { viewModel.onAdRewarded() }
+                }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -126,7 +146,7 @@ fun VoiceInterpreterScreen(
                                     MaterialTheme.colorScheme.secondaryContainer
                             ) {
                                 Text(
-                                    text = if (uiState.isOfflineTranslation) "📱 온디바이스" else "☁️ Cloud",
+                                    text = if (uiState.isOfflineTranslation) "📱 온디바이스" else "☁️ DeepL",
                                     style = MaterialTheme.typography.labelSmall,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                     color = if (uiState.isOfflineTranslation)
@@ -160,6 +180,18 @@ fun VoiceInterpreterScreen(
             }
         }
 
+        // Remaining quota display
+        if (uiState.remainingToday <= 20) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "오늘 번역 가능 횟수: ${uiState.remainingToday}회",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (uiState.remainingToday == 0) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        }
+
         Spacer(Modifier.weight(1f))
 
         // Mic button
@@ -188,6 +220,52 @@ fun VoiceInterpreterScreen(
 
         Spacer(Modifier.height(24.dp))
     }
+
+    // Quota exhausted dialog
+    if (uiState.showQuotaExhausted) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissQuotaDialog,
+            title = { Text("오늘 번역 횟수를 모두 사용했습니다") },
+            text = {
+                Column {
+                    Text("하루 ${TranslationQuotaManager.DAILY_FREE}회 무료 번역을 모두 사용했어요.")
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "광고를 시청하면 ${TranslationQuotaManager.AD_GRANT}회를 추가로 사용할 수 있어요.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val activity = context as? Activity
+                    loadAndShowRewardedAd(activity) { viewModel.onAdRewarded() }
+                }) { Text("광고 보고 ${TranslationQuotaManager.AD_GRANT}회 추가") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissQuotaDialog) { Text("닫기") }
+            }
+        )
+    }
+}
+
+private fun loadAndShowRewardedAd(activity: Activity?, onRewarded: () -> Unit) {
+    activity ?: return
+    RewardedAd.load(
+        activity,
+        "ca-app-pub-3940256099942544/5224354917", // 테스트 ID — 출시 전 실제 ID로 교체
+        AdRequest.Builder().build(),
+        object : RewardedAdLoadCallback() {
+            override fun onAdLoaded(ad: RewardedAd) {
+                ad.show(activity) { _ -> onRewarded() }
+            }
+            override fun onAdFailedToLoad(error: LoadAdError) {
+                // 광고 로드 실패 시에도 보상 지급 (개발 중)
+                onRewarded()
+            }
+        }
+    )
 }
 
 @Composable

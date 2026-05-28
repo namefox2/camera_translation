@@ -45,4 +45,7 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
 
     implementation(libs.kotlinx.coroutines.android)
+
+    // AdMob
+    implementation(libs.play.services.ads)
 }

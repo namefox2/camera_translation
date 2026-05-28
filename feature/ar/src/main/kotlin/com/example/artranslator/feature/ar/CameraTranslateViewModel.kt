@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.artranslator.core.translation.TranslationQuotaManager
 import com.example.artranslator.core.translation.TranslationRepository
 import com.example.artranslator.core.translation.model.TranslationResult
 import com.google.mlkit.vision.common.InputImage
@@ -16,8 +17,11 @@ import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
 import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -26,6 +30,12 @@ import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+
+// ─── Effects ──────────────────────────────────────────────────────────────────
+
+sealed class CameraTranslateEffect {
+    object ShowRewardedAd : CameraTranslateEffect()
+}
 
 // ─── UI 상태 ───────────────────────────────────────────────────────────────────
 
@@ -51,19 +61,37 @@ data class CameraTranslateUiState(
     val step: CaptureStep = CaptureStep.Preview,
     val isProcessing: Boolean = false,
     val targetLanguage: String = "ko",
-    val sourceScript: TextAnalyzer.Script = TextAnalyzer.Script.AUTO,  // 기본값: 자동 감지
-    val error: String? = null
+    val sourceScript: TextAnalyzer.Script = TextAnalyzer.Script.AUTO,
+    val error: String? = null,
+    val remainingToday: Int = TranslationQuotaManager.DAILY_FREE,
+    val showQuotaExhausted: Boolean = false
 )
 
 // ─── ViewModel ────────────────────────────────────────────────────────────────
 
 @HiltViewModel
 class CameraTranslateViewModel @Inject constructor(
-    private val translationRepository: TranslationRepository
+    private val translationRepository: TranslationRepository,
+    private val quotaManager: TranslationQuotaManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CameraTranslateUiState())
     val uiState: StateFlow<CameraTranslateUiState> = _uiState.asStateFlow()
+
+    private val _effects = MutableSharedFlow<CameraTranslateEffect>()
+    val effects: SharedFlow<CameraTranslateEffect> = _effects.asSharedFlow()
+
+    // Pending OCR text waiting for ad reward
+    private var pendingOcrText: String? = null
+    private var pendingBitmap: Bitmap? = null
+    private var pendingSelStart: Offset? = null
+    private var pendingSelEnd: Offset? = null
+
+    init {
+        viewModelScope.launch {
+            _uiState.update { it.copy(remainingToday = quotaManager.getRemaining()) }
+        }
+    }
 
     /** CameraX ImageCapture 콜백에서 Bitmap을 받으면 호출 */
     fun onPhotoCaptured(bitmap: Bitmap, rotationDegrees: Int = 0) {
@@ -102,34 +130,95 @@ class CameraTranslateViewModel @Inject constructor(
                     return@launch
                 }
 
-                // 3. 번역
-                val result = translationRepository.translate(
-                    text = recognized,
-                    targetLanguage = _uiState.value.targetLanguage
-                )
-
-                when (result) {
-                    is TranslationResult.Success -> _uiState.update {
+                // 3. 쿼터 확인
+                if (!quotaManager.consume()) {
+                    pendingOcrText = recognized
+                    pendingBitmap = bitmap
+                    pendingSelStart = selStart
+                    pendingSelEnd = selEnd
+                    _uiState.update {
                         it.copy(
                             isProcessing = false,
-                            step = CaptureStep.Result(
-                                bitmap = bitmap,
-                                selStart = selStart,
-                                selEnd = selEnd,
-                                recognizedText = recognized,
-                                translatedText = result.translatedText,
-                                isOffline = result.isOffline
-                            )
+                            showQuotaExhausted = true,
+                            remainingToday = 0
                         )
                     }
-                    is TranslationResult.Error -> _uiState.update {
-                        it.copy(isProcessing = false, error = result.message)
-                    }
+                    _effects.emit(CameraTranslateEffect.ShowRewardedAd)
+                    return@launch
                 }
+
+                // 4. 번역
+                doTranslate(recognized, bitmap, selStart, selEnd)
             } catch (e: Exception) {
                 _uiState.update { it.copy(isProcessing = false, error = "오류: ${e.localizedMessage}") }
             }
         }
+    }
+
+    private suspend fun doTranslate(
+        recognized: String,
+        bitmap: Bitmap,
+        selStart: Offset,
+        selEnd: Offset
+    ) {
+        _uiState.update { it.copy(remainingToday = quotaManager.getRemaining()) }
+        val result = translationRepository.translate(
+            text = recognized,
+            targetLanguage = _uiState.value.targetLanguage
+        )
+
+        when (result) {
+            is TranslationResult.Success -> _uiState.update {
+                it.copy(
+                    isProcessing = false,
+                    step = CaptureStep.Result(
+                        bitmap = bitmap,
+                        selStart = selStart,
+                        selEnd = selEnd,
+                        recognizedText = recognized,
+                        translatedText = result.translatedText,
+                        isOffline = result.isOffline
+                    )
+                )
+            }
+            is TranslationResult.Error -> _uiState.update {
+                it.copy(isProcessing = false, error = result.message)
+            }
+            is TranslationResult.QuotaExceeded -> { /* handled before doTranslate */ }
+        }
+    }
+
+    fun onAdRewarded() {
+        viewModelScope.launch {
+            quotaManager.grantAdReward()
+            val remaining = quotaManager.getRemaining()
+            _uiState.update { it.copy(showQuotaExhausted = false, remainingToday = remaining) }
+
+            val text = pendingOcrText
+            val bmp = pendingBitmap
+            val start = pendingSelStart
+            val end = pendingSelEnd
+
+            pendingOcrText = null
+            pendingBitmap = null
+            pendingSelStart = null
+            pendingSelEnd = null
+
+            if (text != null && bmp != null && start != null && end != null) {
+                if (quotaManager.consume()) {
+                    _uiState.update { it.copy(isProcessing = true) }
+                    doTranslate(text, bmp, start, end)
+                }
+            }
+        }
+    }
+
+    fun dismissQuotaDialog() {
+        _uiState.update { it.copy(showQuotaExhausted = false) }
+        pendingOcrText = null
+        pendingBitmap = null
+        pendingSelStart = null
+        pendingSelEnd = null
     }
 
     fun retake() = _uiState.update { it.copy(step = CaptureStep.Preview, error = null) }
@@ -152,7 +241,6 @@ class CameraTranslateViewModel @Inject constructor(
         script: TextAnalyzer.Script
     ): String? {
         if (script != TextAnalyzer.Script.AUTO) {
-            // 수동: 선택한 인식기 그대로 사용
             val recognizer = script.toRecognizer()
             val text = recognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text.trim()
             recognizer.close()
@@ -166,10 +254,8 @@ class CameraTranslateViewModel @Inject constructor(
 
         val detectedScript = detectScriptFromText(probeText)
 
-        // 감지된 스크립트가 JAPANESE라면 프로브 결과를 그대로 사용
         if (detectedScript == TextAnalyzer.Script.JAPANESE || probeText.isNotBlank() &&
             detectedScript != TextAnalyzer.Script.LATIN) {
-            // CHINESE / KOREAN은 전용 인식기로 재인식해 정확도 향상
             if (detectedScript == TextAnalyzer.Script.CHINESE || detectedScript == TextAnalyzer.Script.KOREAN) {
                 val finalRecognizer = detectedScript.toRecognizer()
                 val finalText = finalRecognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text.trim()
@@ -179,7 +265,6 @@ class CameraTranslateViewModel @Inject constructor(
             return probeText.ifBlank { null }
         }
 
-        // LATIN으로 감지되면 Latin 인식기로 재인식
         val latinRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
         val latinText = latinRecognizer.process(InputImage.fromBitmap(bitmap, 0)).await().text.trim()
         latinRecognizer.close()
@@ -220,10 +305,6 @@ class CameraTranslateViewModel @Inject constructor(
 
     // ─── 좌표 변환 & 크롭 ─────────────────────────────────────────────────────
 
-    /**
-     * ContentScale.Fit으로 표시된 이미지 위의 화면 좌표를
-     * 원본 비트맵 픽셀 좌표로 변환한 뒤 크롭합니다.
-     */
     private fun cropBitmap(
         bitmap: Bitmap,
         start: Offset,
@@ -232,7 +313,7 @@ class CameraTranslateViewModel @Inject constructor(
     ): Bitmap {
         val scaleX = viewSize.width.toFloat() / bitmap.width
         val scaleY = viewSize.height.toFloat() / bitmap.height
-        val scale = min(scaleX, scaleY)                 // ContentScale.Fit
+        val scale = min(scaleX, scaleY)
 
         val displayedW = bitmap.width * scale
         val displayedH = bitmap.height * scale
