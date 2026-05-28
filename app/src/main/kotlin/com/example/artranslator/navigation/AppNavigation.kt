@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -20,6 +21,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.artranslator.DonationViewModel
 import com.example.artranslator.core.ui.theme.*
 import com.example.artranslator.feature.ar.ArTranslationScreen
 import com.example.artranslator.feature.ar.CameraTranslateScreen
@@ -203,46 +205,112 @@ private fun SettingsScreen(
     onTermsOfService: () -> Unit,
     onOssLicenses: () -> Unit
 ) {
-    androidx.compose.foundation.lazy.LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp)
-    ) {
-        // ─ 테마 섹션 ──────────────────────────────────────────────────────────
-        item {
-            Spacer(Modifier.height(16.dp))
-            Text("테마 선택", style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(12.dp))
-            ThemeType.entries.forEach { theme ->
-                ThemeCard(
-                    theme = theme,
-                    isSelected = theme == currentTheme,
-                    onClick = { onThemeChange(theme) }
-                )
-                Spacer(Modifier.height(8.dp))
-            }
+    val donationViewModel: DonationViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val products by donationViewModel.products.collectAsState()
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        donationViewModel.toast.collect { msg ->
+            snackbarHostState.showSnackbar(msg)
         }
+    }
 
-        // ─ 법적 고지 섹션 ──────────────────────────────────────────────────────
-        item {
-            Spacer(Modifier.height(24.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(16.dp))
-            Text("법적 고지", style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(8.dp))
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { innerPadding ->
+        androidx.compose.foundation.lazy.LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp)
+        ) {
+            // ─ 후원 섹션 ──────────────────────────────────────────────────────
+            item {
+                Spacer(Modifier.height(16.dp))
+                Text("개발자 후원하기", style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "번역 어플을 이용해 주셔서 감사합니다.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "후원금은 개발자에게 큰 힘이 됩니다 🙏",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            products.forEach { product ->
+                                FilledTonalButton(
+                                    onClick = {
+                                        donationViewModel.donate(
+                                            context as android.app.Activity, product
+                                        )
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(
+                                        product.label,
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
-            LegalMenuItem(Icons.Default.PrivacyTip, "개인정보처리방침", onPrivacyPolicy)
-            LegalMenuItem(Icons.Default.Description, "서비스 이용약관",  onTermsOfService)
-            LegalMenuItem(Icons.Default.Code,        "오픈소스 라이선스", onOssLicenses)
+            // ─ 테마 섹션 ──────────────────────────────────────────────────────
+            item {
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+                Text("테마 선택", style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(12.dp))
+                ThemeType.entries.forEach { theme ->
+                    ThemeCard(
+                        theme = theme,
+                        isSelected = theme == currentTheme,
+                        onClick = { onThemeChange(theme) }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
 
-            Spacer(Modifier.height(8.dp))
-            Text("앱 버전 1.0.0",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                modifier = Modifier.padding(vertical = 8.dp))
-            Spacer(Modifier.height(32.dp))
+            // ─ 법적 고지 섹션 ──────────────────────────────────────────────────
+            item {
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+                Text("법적 고지", style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+
+                LegalMenuItem(Icons.Default.PrivacyTip, "개인정보처리방침", onPrivacyPolicy)
+                LegalMenuItem(Icons.Default.Description, "서비스 이용약관",  onTermsOfService)
+                LegalMenuItem(Icons.Default.Code,        "오픈소스 라이선스", onOssLicenses)
+
+                Spacer(Modifier.height(8.dp))
+                Text("앱 버전 1.0.0",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    modifier = Modifier.padding(vertical = 8.dp))
+                Spacer(Modifier.height(32.dp))
+            }
         }
     }
 }

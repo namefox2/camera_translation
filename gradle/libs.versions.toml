@@ -26,6 +26,7 @@ lottie = "6.4.1"
 accompanist = "0.34.0"
 guava = "33.2.1-android"
 play-services-ads = "23.3.0"
+billing = "7.0.0"
 
 [libraries]
 # AndroidX Core
@@ -99,6 +100,7 @@ guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 
 # AdMob
 play-services-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "play-services-ads" }
+billing = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }
 
 # Testing
 junit = { group = "junit", name = "junit", version = "4.13.2" }

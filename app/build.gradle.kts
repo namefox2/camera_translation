@@ -100,6 +100,9 @@ dependencies {
     // AdMob
     implementation(libs.play.services.ads)
 
+    // Google Play Billing
+    implementation(libs.billing)
+
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 
