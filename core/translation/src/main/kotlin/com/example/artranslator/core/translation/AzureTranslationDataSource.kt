@@ -1,5 +1,6 @@
 package com.example.artranslator.core.translation
 
+import android.util.Log
 import android.util.LruCache
 import com.example.artranslator.core.translation.model.TranslationResult
 import com.google.gson.annotations.SerializedName
@@ -78,8 +79,10 @@ class AzureTranslationDataSource @Inject constructor(
         apiKey: String
     ): TranslationResult {
         if (apiKey.isBlank()) {
+            Log.w(TAG, "AZURE_TRANSLATION_KEY is blank — check local.properties")
             return TranslationResult.Error("Azure 번역 API 키가 설정되지 않았습니다. local.properties에 AZURE_TRANSLATION_KEY를 추가해 주세요.")
         }
+        Log.d(TAG, "translate(): keyLen=${apiKey.length}, region='$region'")
 
         val targetCode = targetLanguage.toAzureCode()
         val sourceCode = sourceLanguage?.toAzureCode()
@@ -106,9 +109,16 @@ class AzureTranslationDataSource @Inject constructor(
                 isOffline = false
             )
         } catch (e: retrofit2.HttpException) {
+            Log.w(TAG, "Azure HTTP ${e.code()}: keyLen=${apiKey.length}, region='$region'")
             when (e.code()) {
                 400 -> TranslationResult.Error("잘못된 요청입니다.")
-                401, 403 -> TranslationResult.Error("Azure API 키가 올바르지 않습니다. local.properties를 확인해 주세요.")
+                401, 403 -> {
+                    val hint = if (region.isBlank())
+                        "AZURE_TRANSLATION_REGION이 설정되지 않았습니다. local.properties에 예) AZURE_TRANSLATION_REGION=koreacentral 을 추가해 주세요."
+                    else
+                        "Azure API 키를 Azure Portal에서 재확인해 주세요. (region=$region)"
+                    TranslationResult.Error("Azure 인증 실패 (${e.code()}). $hint")
+                }
                 429 -> TranslationResult.Error("요청 한도를 초과했습니다. 잠시 후 다시 시도하세요.")
                 else -> TranslationResult.Error("Azure 서버 오류 (HTTP ${e.code()})")
             }
@@ -116,6 +126,8 @@ class AzureTranslationDataSource @Inject constructor(
             TranslationResult.Error("네트워크 오류: ${e.localizedMessage}", e)
         }
     }
+
+    companion object { private const val TAG = "AzureTranslator" }
 
     private fun String.toAzureCode(): String = when (this.lowercase()) {
         "ko" -> "ko"
