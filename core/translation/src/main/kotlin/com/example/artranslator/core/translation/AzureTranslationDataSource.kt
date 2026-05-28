@@ -22,7 +22,6 @@ private interface AzureTranslatorApi {
         @Query("to") to: String,
         @Query("from") from: String?,
         @Header("Ocp-Apim-Subscription-Key") key: String,
-        @Header("Ocp-Apim-Subscription-Region") region: String,
         @Body body: List<AzureTranslateItem>
     ): List<AzureTranslateResult>
 }
@@ -53,10 +52,18 @@ class AzureTranslationDataSource @Inject constructor(
 
     private val api: AzureTranslatorApi by lazy {
         val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
-        val client = OkHttpClient.Builder().addInterceptor(logging).build()
+        val clientBuilder = OkHttpClient.Builder().addInterceptor(logging)
+        if (region.isNotBlank()) {
+            clientBuilder.addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("Ocp-Apim-Subscription-Region", region)
+                    .build()
+                chain.proceed(request)
+            }
+        }
         Retrofit.Builder()
             .baseUrl("https://api.cognitive.microsofttranslator.com/")
-            .client(client)
+            .client(clientBuilder.build())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(AzureTranslatorApi::class.java)
@@ -86,7 +93,6 @@ class AzureTranslationDataSource @Inject constructor(
                 to = targetCode,
                 from = sourceCode,
                 key = apiKey,
-                region = region,
                 body = listOf(AzureTranslateItem(text))
             )
             val translation = results.firstOrNull()?.translations?.firstOrNull()
