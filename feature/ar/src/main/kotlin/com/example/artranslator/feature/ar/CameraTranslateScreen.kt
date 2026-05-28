@@ -1,6 +1,7 @@
 package com.example.artranslator.feature.ar
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -45,9 +46,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.artranslator.core.translation.TranslationQuotaManager
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.rewarded.RewardedAd
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import kotlin.math.abs
@@ -60,39 +66,122 @@ fun CameraTranslateScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val cameraPermission = rememberPermissionState(Manifest.permission.CAMERA)
+    val context = LocalContext.current
+
+    // Collect one-shot effects (e.g. show rewarded ad)
+    LaunchedEffect(Unit) {
+        viewModel.effects.collect { effect ->
+            when (effect) {
+                is CameraTranslateEffect.ShowRewardedAd -> {
+                    val activity = context as? Activity
+                    loadAndShowRewardedAd(activity) { viewModel.onAdRewarded() }
+                }
+            }
+        }
+    }
 
     if (!cameraPermission.status.isGranted) {
         PermissionRequestScreen { cameraPermission.launchPermissionRequest() }
         return
     }
 
-    when (val step = uiState.step) {
-        is CaptureStep.Preview -> CameraPreviewStep(
-            targetLanguage = uiState.targetLanguage,
-            sourceScript = uiState.sourceScript,
-            overlayColor = overlayColor,
-            onCaptured = { bitmap, rotation -> viewModel.onPhotoCaptured(bitmap, rotation) },
-            onLanguageChange = viewModel::setTargetLanguage,
-            onScriptChange = viewModel::setSourceScript
-        )
-        is CaptureStep.Selecting -> SelectionStep(
-            bitmap = step.bitmap,
-            isProcessing = uiState.isProcessing,
-            error = uiState.error,
-            overlayColor = overlayColor,
-            onTranslate = { start, end, size ->
-                viewModel.translateSelection(step.bitmap, start, end, size)
+    Box(Modifier.fillMaxSize()) {
+        when (val step = uiState.step) {
+            is CaptureStep.Preview -> CameraPreviewStep(
+                targetLanguage = uiState.targetLanguage,
+                sourceScript = uiState.sourceScript,
+                overlayColor = overlayColor,
+                onCaptured = { bitmap, rotation -> viewModel.onPhotoCaptured(bitmap, rotation) },
+                onLanguageChange = viewModel::setTargetLanguage,
+                onScriptChange = viewModel::setSourceScript
+            )
+            is CaptureStep.Selecting -> SelectionStep(
+                bitmap = step.bitmap,
+                isProcessing = uiState.isProcessing,
+                error = uiState.error,
+                overlayColor = overlayColor,
+                onTranslate = { start, end, size ->
+                    viewModel.translateSelection(step.bitmap, start, end, size)
+                },
+                onRetake = viewModel::retake,
+                onClearError = viewModel::clearError
+            )
+            is CaptureStep.Result -> ResultStep(
+                result = step,
+                overlayColor = overlayColor,
+                onRetake = viewModel::retake,
+                onReselect = { viewModel.reselect(step.bitmap) }
+            )
+        }
+
+        // Remaining quota badge (shown when ≤ 20 left)
+        if (uiState.remainingToday <= 20) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 8.dp),
+                color = if (uiState.remainingToday == 0)
+                    MaterialTheme.colorScheme.errorContainer
+                else
+                    MaterialTheme.colorScheme.secondaryContainer,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(
+                    text = "오늘 번역 가능 횟수: ${uiState.remainingToday}회",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (uiState.remainingToday == 0)
+                        MaterialTheme.colorScheme.onErrorContainer
+                    else
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
+    }
+
+    // Quota exhausted dialog
+    if (uiState.showQuotaExhausted) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissQuotaDialog,
+            title = { Text("번역 횟수 소진") },
+            text = {
+                Column {
+                    Text("하루 ${TranslationQuotaManager.DAILY_FREE}회 무료 번역을 모두 사용했어요.")
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "광고를 시청하면 ${TranslationQuotaManager.AD_GRANT}회를 추가로 사용할 수 있어요.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
             },
-            onRetake = viewModel::retake,
-            onClearError = viewModel::clearError
-        )
-        is CaptureStep.Result -> ResultStep(
-            result = step,
-            overlayColor = overlayColor,
-            onRetake = viewModel::retake,
-            onReselect = { viewModel.reselect(step.bitmap) }
+            confirmButton = {
+                val activity = context as? Activity
+                TextButton(onClick = {
+                    loadAndShowRewardedAd(activity) { viewModel.onAdRewarded() }
+                }) { Text("광고 보고 ${TranslationQuotaManager.AD_GRANT}회 추가") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissQuotaDialog) { Text("닫기") }
+            }
         )
     }
+}
+
+private fun loadAndShowRewardedAd(activity: Activity?, onRewarded: () -> Unit) {
+    activity ?: run { onRewarded(); return }
+    RewardedAd.load(
+        activity,
+        "ca-app-pub-3940256099942544/5224354917",
+        AdRequest.Builder().build(),
+        object : RewardedAdLoadCallback() {
+            override fun onAdLoaded(ad: RewardedAd) {
+                ad.show(activity) { _ -> onRewarded() }
+            }
+            override fun onAdFailedToLoad(error: LoadAdError) {
+                onRewarded()
+            }
+        }
+    )
 }
 
 // ─── Step 1: 카메라 프리뷰 + 촬영 ─────────────────────────────────────────────
