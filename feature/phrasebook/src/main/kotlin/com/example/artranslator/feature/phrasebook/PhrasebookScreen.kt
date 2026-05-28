@@ -153,7 +153,7 @@ private fun AddPhraseDialog(
                                 Spacer(Modifier.width(6.dp))
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(12.dp),
-                                    strokeWidth = 1.5f
+                                    strokeWidth = 1.5.dp
                                 )
                             }
                         }
