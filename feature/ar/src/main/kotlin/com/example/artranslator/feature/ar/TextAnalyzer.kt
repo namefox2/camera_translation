@@ -148,9 +148,12 @@ class TextAnalyzer(
         }
 
         val (detectedScript, bestText) = best
-        val blocks = bestText!!.textBlocks.mapNotNull { block ->
-            block.boundingBox?.let { box ->
-                TextBlock(block.text, box, block.lines.firstOrNull()?.confidence ?: 0f)
+        // 단락(textBlock)이 아닌 행(line) 단위로 분리해 촘촘하게 인식
+        val blocks = bestText!!.textBlocks.flatMap { block ->
+            block.lines.mapNotNull { line ->
+                line.boundingBox?.let { box ->
+                    TextBlock(line.text, box, line.confidence)
+                }
             }
         }
 
@@ -212,9 +215,11 @@ class TextAnalyzer(
     ) {
         singleRecognizer!!.process(inputImage)
             .addOnSuccessListener { visionText ->
-                val blocks = visionText.textBlocks.mapNotNull { block ->
-                    block.boundingBox?.let { box ->
-                        TextBlock(block.text, box, block.lines.firstOrNull()?.confidence ?: 0f)
+                val blocks = visionText.textBlocks.flatMap { block ->
+                    block.lines.mapNotNull { line ->
+                        line.boundingBox?.let { box ->
+                            TextBlock(line.text, box, line.confidence)
+                        }
                     }
                 }
                 onTextDetected(blocks, effectiveW, effectiveH)

@@ -204,7 +204,6 @@ private fun bindCamera(
             it.setSurfaceProvider(previewView.surfaceProvider)
         }
         val imageAnalysis = ImageAnalysis.Builder()
-            .setTargetResolution(android.util.Size(960, 720))
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
             .also { it.setAnalyzer(executor, textAnalyzer) }
