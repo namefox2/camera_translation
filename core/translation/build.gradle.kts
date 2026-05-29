@@ -30,7 +30,7 @@ dependencies {
 
     // ML Kit
     implementation(libs.mlkit.translate)
-    implementation(libs.mlkit.language.id)
+    implementation(libs.gms.mlkit.language.id) // Play Services variant — native .so not bundled in APK
 
     // Retrofit for Cloud Translation API
     implementation(libs.retrofit)
