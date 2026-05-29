@@ -16,7 +16,7 @@ mlkitTextRecognitionChinese = "16.0.1"
 mlkitTextRecognitionJapanese = "16.0.1"
 mlkitTextRecognitionKorean = "16.0.1"
 # Play Services (unbundled) variants — native .so lives in GMS, not the APK
-gmsTextRecognition = "16.0.1"
+gmsTextRecognition = "19.0.1"
 gmsTextRecognitionChinese = "16.0.1"
 gmsTextRecognitionJapanese = "16.0.1"
 gmsTextRecognitionKorean = "16.0.1"
