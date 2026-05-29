@@ -45,11 +45,12 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.guava)
 
-    // ML Kit Text Recognition
-    implementation(libs.mlkit.text.recognition)
-    implementation(libs.mlkit.text.recognition.chinese)
-    implementation(libs.mlkit.text.recognition.japanese)
-    implementation(libs.mlkit.text.recognition.korean)
+    // ML Kit Text Recognition — Play Services (unbundled) variants
+    // Native .so lives in GMS, not bundled in APK → resolves 16 KB page-size warning
+    implementation(libs.gms.mlkit.text.recognition)
+    implementation(libs.gms.mlkit.text.recognition.chinese)
+    implementation(libs.gms.mlkit.text.recognition.japanese)
+    implementation(libs.gms.mlkit.text.recognition.korean)
 
     // Accompanist Permissions
     implementation(libs.accompanist.permissions)

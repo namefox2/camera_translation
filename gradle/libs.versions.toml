@@ -15,6 +15,11 @@ mlkitTextRecognition = "16.0.1"
 mlkitTextRecognitionChinese = "16.0.1"
 mlkitTextRecognitionJapanese = "16.0.1"
 mlkitTextRecognitionKorean = "16.0.1"
+# Play Services (unbundled) variants — native .so lives in GMS, not the APK
+gmsTextRecognition = "16.0.1"
+gmsTextRecognitionChinese = "16.0.1"
+gmsTextRecognitionJapanese = "16.0.1"
+gmsTextRecognitionKorean = "16.0.1"
 mlkitTranslate = "17.0.3"
 mlkitLanguageId = "17.0.6"
 retrofit = "2.11.0"
@@ -68,13 +73,18 @@ androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", 
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 
-# ML Kit
+# ML Kit (bundled — kept for translate/language-id which have no GMS variant)
 mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitTextRecognition" }
 mlkit-text-recognition-chinese = { group = "com.google.mlkit", name = "text-recognition-chinese", version.ref = "mlkitTextRecognitionChinese" }
 mlkit-text-recognition-japanese = { group = "com.google.mlkit", name = "text-recognition-japanese", version.ref = "mlkitTextRecognitionJapanese" }
 mlkit-text-recognition-korean = { group = "com.google.mlkit", name = "text-recognition-korean", version.ref = "mlkitTextRecognitionKorean" }
 mlkit-translate = { group = "com.google.mlkit", name = "translate", version.ref = "mlkitTranslate" }
 mlkit-language-id = { group = "com.google.mlkit", name = "language-id", version.ref = "mlkitLanguageId" }
+# ML Kit — Play Services (unbundled) variants for text recognition: no native .so in APK → 16 KB safe
+gms-mlkit-text-recognition = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition", version.ref = "gmsTextRecognition" }
+gms-mlkit-text-recognition-chinese = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-chinese", version.ref = "gmsTextRecognitionChinese" }
+gms-mlkit-text-recognition-japanese = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-japanese", version.ref = "gmsTextRecognitionJapanese" }
+gms-mlkit-text-recognition-korean = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-korean", version.ref = "gmsTextRecognitionKorean" }
 
 # Retrofit / OkHttp
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
