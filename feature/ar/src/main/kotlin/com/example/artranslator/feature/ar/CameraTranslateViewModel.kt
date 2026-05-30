@@ -97,7 +97,9 @@ class CameraTranslateViewModel @Inject constructor(
     fun onPhotoCaptured(bitmap: Bitmap, rotationDegrees: Int = 0) {
         val rotated = if (rotationDegrees != 0) {
             val m = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
-            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, m, true)
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, m, true).also {
+                bitmap.recycle()
+            }
         } else {
             bitmap
         }
@@ -221,7 +223,12 @@ class CameraTranslateViewModel @Inject constructor(
         pendingSelEnd = null
     }
 
-    fun retake() = _uiState.update { it.copy(step = CaptureStep.Preview, error = null) }
+    fun retake() {
+        val step = _uiState.value.step
+        _uiState.update { it.copy(step = CaptureStep.Preview, error = null) }
+        (step as? CaptureStep.Selecting)?.bitmap?.recycle()
+        (step as? CaptureStep.Result)?.bitmap?.recycle()
+    }
 
     fun reselect(bitmap: Bitmap) = _uiState.update {
         it.copy(step = CaptureStep.Selecting(bitmap), error = null)
@@ -324,6 +331,12 @@ class CameraTranslateViewModel @Inject constructor(
     }
 
     fun clearError() = _uiState.update { it.copy(error = null) }
+
+    override fun onCleared() {
+        super.onCleared()
+        pendingBitmap?.recycle()
+        pendingBitmap = null
+    }
 
     // ─── 좌표 변환 & 크롭 ─────────────────────────────────────────────────────
 

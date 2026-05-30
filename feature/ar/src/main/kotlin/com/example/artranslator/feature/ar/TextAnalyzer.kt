@@ -61,6 +61,8 @@ class TextAnalyzer(
     @Volatile private var lastAnalyzedTimestamp = 0L
     private val debounceMs = 600L
     private val autoDetected = AtomicBoolean(false)
+    // 스크립트 확정 후 단일 인식기만 사용해 배터리 절약
+    @Volatile private var confirmedScript: Script? = null
 
     @Volatile var paused = false
         private set
@@ -108,6 +110,24 @@ class TextAnalyzer(
     ) {
         val recognizers = autoRecognizers ?: run {
             imageProxy.close(); isProcessing.set(false); return
+        }
+
+        // 스크립트 확정 후: 4개 동시 실행 대신 해당 인식기 1개만 실행 → CPU/배터리 절약
+        val confirmed = confirmedScript
+        if (confirmed != null) {
+            val recognizer = recognizers[confirmed] ?: recognizers.values.first()
+            recognizer.process(inputImage)
+                .addOnSuccessListener { visionText ->
+                    val blocks = visionText.textBlocks.flatMap { block ->
+                        block.lines.mapNotNull { line ->
+                            line.boundingBox?.let { box -> TextBlock(line.text, box, line.confidence) }
+                        }
+                    }
+                    onTextDetected(blocks, effectiveW, effectiveH)
+                }
+                .addOnFailureListener { onTextDetected(emptyList(), effectiveW, effectiveH) }
+                .addOnCompleteListener { imageProxy.close(); isProcessing.set(false) }
+            return
         }
 
         val results = mutableMapOf<Script, com.google.mlkit.vision.text.Text?>()
@@ -160,6 +180,7 @@ class TextAnalyzer(
         // 스크립트 확정 알림 (1회만)
         if (blocks.isNotEmpty() && !autoDetected.get()) {
             if (autoDetected.compareAndSet(false, true)) {
+                confirmedScript = detectedScript
                 onScriptDetected?.invoke(detectedScript)
             }
         }

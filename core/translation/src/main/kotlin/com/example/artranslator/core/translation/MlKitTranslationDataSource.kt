@@ -20,8 +20,14 @@ import javax.inject.Singleton
 class MlKitTranslationDataSource @Inject constructor() {
 
     private val resultCache = LruCache<String, String>(200)
-    // Translator 인스턴스를 언어 쌍별로 재사용 (매 호출마다 생성/해제 방지)
-    private val translatorPool = HashMap<String, com.google.mlkit.nl.translate.Translator>(8)
+
+    // LRU pool: 최대 6쌍까지 재사용, 오래된 항목은 close() 후 제거
+    private val translatorPool = object : LinkedHashMap<String, com.google.mlkit.nl.translate.Translator>(8, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, com.google.mlkit.nl.translate.Translator>): Boolean {
+            if (size > 6) { eldest.value.close(); return true }
+            return false
+        }
+    }
 
     private fun getTranslator(src: String, tgt: String): com.google.mlkit.nl.translate.Translator {
         val key = "$src|$tgt"

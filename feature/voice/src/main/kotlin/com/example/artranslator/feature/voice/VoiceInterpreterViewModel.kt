@@ -57,10 +57,11 @@ class VoiceInterpreterViewModel @Inject constructor(
 
     private var speechRecognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
+    private var ttsReady = false
     private var pendingText: String? = null
 
     init {
-        tts = TextToSpeech(context) { }
+        tts = TextToSpeech(context) { status -> ttsReady = (status == TextToSpeech.SUCCESS) }
         viewModelScope.launch {
             _uiState.update { it.copy(remainingToday = quotaManager.getRemaining()) }
         }
@@ -148,6 +149,7 @@ class VoiceInterpreterViewModel @Inject constructor(
     }
 
     fun speakTranslation() {
+        if (!ttsReady) return
         val text = _uiState.value.translatedText
         if (text.isBlank()) return
         val locale = Locale.forLanguageTag(_uiState.value.targetLanguage)

@@ -62,10 +62,14 @@ class PhrasebookViewModel @Inject constructor(
     val uiState: StateFlow<PhrasebookUiState> = _uiState.asStateFlow()
 
     private var tts: TextToSpeech? = null
+    private var ttsReady = false
     private var autoTranslateJob: Job? = null
+    // 언어/카테고리 변경 시 이전 collect 코루틴을 취소하지 않으면 복수 컬렉터가 누적됨 → Job으로 관리
+    private var categoriesJob: Job? = null
+    private var phrasesJob: Job? = null
 
     init {
-        tts = TextToSpeech(context) { }
+        tts = TextToSpeech(context) { status -> ttsReady = (status == TextToSpeech.SUCCESS) }
         loadDownloadedLanguages()
     }
 
@@ -82,7 +86,8 @@ class PhrasebookViewModel @Inject constructor(
     }
 
     private fun loadCategories(languageCode: String) {
-        viewModelScope.launch {
+        categoriesJob?.cancel()
+        categoriesJob = viewModelScope.launch {
             phraseDao.getCategoriesForLanguage(languageCode).collect { rawCategories ->
                 val categories = rawCategories
                     .sortedBy { categoryOrder.indexOf(it).takeIf { i -> i >= 0 } ?: Int.MAX_VALUE }
@@ -96,7 +101,8 @@ class PhrasebookViewModel @Inject constructor(
     }
 
     private fun loadPhrases(languageCode: String, category: String) {
-        viewModelScope.launch {
+        phrasesJob?.cancel()
+        phrasesJob = viewModelScope.launch {
             phraseDao.getPhrasesByCategory(languageCode, category).collect { entities ->
                 _uiState.update { it.copy(phrases = entities.map { e -> e.toPhraseItem() }) }
             }
@@ -178,6 +184,7 @@ class PhrasebookViewModel @Inject constructor(
     }
 
     fun speakPhrase(phrase: PhraseItem) {
+        if (!ttsReady) return
         val locale = Locale.forLanguageTag(phrase.languageCode)
         tts?.language = locale
         tts?.speak(phrase.translatedText, TextToSpeech.QUEUE_FLUSH, null, null)
