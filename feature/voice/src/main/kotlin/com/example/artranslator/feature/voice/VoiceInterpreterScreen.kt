@@ -249,7 +249,7 @@ private fun loadAndShowRewardedAd(activity: Activity?, onRewarded: () -> Unit) {
     activity ?: return
     RewardedAd.load(
         activity,
-        "ca-app-pub-3940256099942544/5224354917", // 테스트 ID — 출시 전 실제 ID로 교체
+        "ca-app-pub-9392221797396472/9180791951",
         AdRequest.Builder().build(),
         object : RewardedAdLoadCallback() {
             override fun onAdLoaded(ad: RewardedAd) {
