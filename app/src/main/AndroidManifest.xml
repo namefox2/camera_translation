@@ -36,10 +36,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ARTranslator">
 
-        <!-- AdMob App ID (test ID — replace when publishing) -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713"/>
+            android:value="ca-app-pub-9392221797396472~3215973234"/>
 
         <activity
             android:name=".MainActivity"
