@@ -33,6 +33,7 @@ import com.example.artranslator.feature.ar.ArTranslationScreen
 import com.example.artranslator.feature.ar.CameraTranslateScreen
 import com.example.artranslator.feature.language.LanguageManagerScreen
 import com.example.artranslator.feature.phrasebook.PhrasebookScreen
+import com.example.artranslator.feature.screen.ScreenTranslationScreen
 import com.example.artranslator.feature.text.TextTranslationScreen
 import com.example.artranslator.feature.voice.VoiceInterpreterScreen
 import com.example.artranslator.legal.OpenSourceLicensesScreen
@@ -45,6 +46,7 @@ object Routes {
     const val AR               = "ar"
     const val CAMERA_TRANSLATE = "camera_translate"
     const val TEXT             = "text"
+    const val SCREEN           = "screen"
     const val VOICE            = "voice"
     const val PHRASEBOOK       = "phrasebook"
     const val LANGUAGE         = "language"
@@ -63,6 +65,7 @@ private fun routeTitle(route: String?, themeType: ThemeType): String = when (rou
     Routes.AR               -> "AR 번역"
     Routes.CAMERA_TRANSLATE -> "카메라 번역"
     Routes.TEXT             -> "텍스트 번역"
+    Routes.SCREEN           -> "화면 번역"
     Routes.VOICE            -> "음성 번역"
     Routes.PHRASEBOOK       -> themeType.contextTabLabel()
     Routes.LANGUAGE         -> "언어 관리"
@@ -97,11 +100,13 @@ fun AppNavigation(
 
     val navItems = remember(themeType) {
         listOf(
-            NavItem(Routes.VOICE,            "음성 번역",   Icons.Default.Mic),
-            NavItem(Routes.AR,               "AR 번역",    Icons.Default.CameraAlt),
-            NavItem(Routes.CAMERA_TRANSLATE, "카메라 번역", Icons.Default.PhotoCamera),
+            NavItem(Routes.VOICE,            "음성",    Icons.Default.Mic),
+            NavItem(Routes.TEXT,             "텍스트",  Icons.Default.Keyboard),
+            NavItem(Routes.CAMERA_TRANSLATE, "카메라",  Icons.Default.PhotoCamera),
+            NavItem(Routes.SCREEN,           "화면번역", Icons.Default.PhoneAndroid),
+            NavItem(Routes.AR,               "AR",     Icons.Default.CameraAlt),
             NavItem(Routes.PHRASEBOOK,       themeType.contextTabLabel(), Icons.Default.MenuBook),
-            NavItem(Routes.LANGUAGE,         "언어",        Icons.Default.Download),
+            NavItem(Routes.LANGUAGE,         "언어",    Icons.Default.Download),
         )
     }
 
@@ -186,6 +191,9 @@ fun AppNavigation(
             }
             composable(Routes.TEXT) {
                 TextTranslationScreen()
+            }
+            composable(Routes.SCREEN) {
+                ScreenTranslationScreen()
             }
             composable(Routes.VOICE) {
                 VoiceInterpreterScreen()
