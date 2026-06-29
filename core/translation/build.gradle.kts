@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "com.letsgo.translator.core.translation"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 26
