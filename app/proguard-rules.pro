@@ -23,10 +23,10 @@
 }
 
 # Keep Gson models
--keep class com.example.artranslator.core.translation.** { *; }
+-keep class com.letsgo.translator.core.translation.** { *; }
 
 # Keep Room entities
--keep class com.example.artranslator.core.database.entity.** { *; }
+-keep class com.letsgo.translator.core.database.entity.** { *; }
 
 # Keep Hilt generated code
 -keep class * extends dagger.hilt.internal.GeneratedComponent { *; }
