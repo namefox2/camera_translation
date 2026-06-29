@@ -33,3 +33,8 @@
 
 # Keep CameraX
 -keep class androidx.camera.** { *; }
+
+# Guava references J2ObjC annotations not present on Android
+-dontwarn com.google.j2objc.annotations.**
+-dontwarn java.lang.ClassValue
+-dontwarn org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement
