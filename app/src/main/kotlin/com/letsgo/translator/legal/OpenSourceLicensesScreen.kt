@@ -79,6 +79,10 @@ private val libraries = listOf(
         "Apache License 2.0", APACHE_2, "https://github.com/Kotlin/kotlinx.coroutines"),
     OssLibrary("Gson", "2.10.1", "Google LLC",
         "Apache License 2.0", APACHE_2, "https://github.com/google/gson"),
+    OssLibrary("Coil", "2.7.0", "Coil Contributors",
+        "Apache License 2.0", APACHE_2, "https://github.com/coil-kt/coil"),
+    OssLibrary("Lottie for Android", "6.4.1", "Airbnb, Inc.",
+        "Apache License 2.0", APACHE_2, "https://github.com/airbnb/lottie-android"),
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

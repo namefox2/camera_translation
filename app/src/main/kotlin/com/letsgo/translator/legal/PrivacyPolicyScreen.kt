@@ -69,9 +69,11 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
                     """
                     회사는 다음 목적으로 개인정보를 처리합니다. 처리한 개인정보는 아래의 목적 이외의 용도로는 이용하지 않습니다.
 
-                    • 번역 텍스트: Google Cloud Translation API를 통한 번역 결과 제공
+                    • 번역 텍스트: Microsoft Azure Translator API를 통한 번역 결과 제공 (인터넷 연결 시)
                     • 음성 데이터: Android SpeechRecognizer를 통한 음성 인식 및 번역 제공
-                    • 오프라인 데이터: ML Kit 온디바이스 모델을 통한 오프라인 번역 제공
+                    • 오프라인 데이터: ML Kit 온디바이스 모델을 통한 오프라인 번역 제공 (외부 전송 없음)
+                    • 화면 번역: 접근성 서비스를 통해 화면에 표시된 텍스트를 읽어 번역 (기기 내 처리 또는 Azure API 전송)
+                    • 광고 서비스: Google AdMob을 통한 광고 표시 (광고 식별자 처리)
                     """.trimIndent()
                 )
             }
@@ -83,13 +85,21 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
 
                     ② 다음의 경우 이용자 정보가 제3자(외부 서비스)에서 처리됩니다.
 
+                    [Microsoft Corporation]
+                    - 제공 정보: 번역 대상 텍스트 (인터넷 연결 시)
+                    - 제공 목적: Azure Translator API를 통한 번역 서비스 제공
+                    - 보유 기간: Microsoft의 개인정보처리방침에 따름
+                    - Microsoft 개인정보처리방침: https://privacy.microsoft.com/ko-kr/privacystatement
+
                     [Google LLC]
-                    - 제공 정보: 번역 대상 텍스트, 음성 데이터 (인터넷 연결 시)
-                    - 제공 목적: Google Cloud Translation API 번역 서비스 제공, SpeechRecognizer 음성 인식
+                    - 제공 정보: 음성 데이터 (음성 번역 기능 사용 시), 광고 식별자 (광고 서비스)
+                    - 제공 목적: Android SpeechRecognizer 음성 인식, Google AdMob 광고 제공
                     - 보유 기간: Google의 개인정보처리방침에 따름
                     - Google 개인정보처리방침: https://policies.google.com/privacy
 
-                    ③ 오프라인 모드(ML Kit 온디바이스) 사용 시에는 어떠한 데이터도 외부로 전송되지 않습니다.
+                    ③ 오프라인 모드(ML Kit 온디바이스) 사용 시에는 번역 텍스트가 외부로 전송되지 않습니다.
+
+                    ④ 화면 번역 기능(접근성 서비스)은 사용자가 선택한 텍스트만 처리하며, 화면 전체를 기록하거나 저장하지 않습니다.
                     """.trimIndent()
                 )
             }
@@ -111,8 +121,12 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
                     """
                     회사는 서비스 이용 과정에서 아래와 같이 개인정보 처리 업무를 위탁하고 있습니다.
 
+                    수탁업체: Microsoft Corporation
+                    위탁 업무: 텍스트 번역 처리 (Azure Translator API)
+                    개인정보 보유 기간: 위탁 업무 처리 완료 후 즉시
+
                     수탁업체: Google LLC
-                    위탁 업무: 텍스트 번역 처리(Cloud Translation API), 음성 인식(SpeechRecognizer)
+                    위탁 업무: 음성 인식 (Android SpeechRecognizer), 광고 서비스 (Google AdMob)
                     개인정보 보유 기간: 위탁 업무 처리 완료 후 즉시
 
                     회사는 위탁 계약 시 개인정보보호 관련 법규의 준수, 개인정보에 관한 제3자 제공 금지 등을 규정하고 이를 준수합니다.
@@ -139,7 +153,7 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
                     """
                     회사는 개인정보 보호를 위해 다음 조치를 취하고 있습니다.
 
-                    • API 키 암호화 관리: Google Cloud API 키를 소스코드에 포함하지 않고 별도 관리
+                    • API 키 암호화 관리: Microsoft Azure API 키를 소스코드에 포함하지 않고 빌드 시점에 별도 주입
                     • 최소 수집 원칙: 서비스에 필요한 최소한의 정보만 처리
                     • 전송 구간 보호: HTTPS(TLS)를 통한 외부 API 통신 암호화
                     • 로컬 데이터 보호: Android Keystore 기반 기기 내 데이터 보호
