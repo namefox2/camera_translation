@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.artranslator.core.ui"
+    namespace = "com.letsgo.translator.core.ui"
     compileSdk = 34
 
     defaultConfig {

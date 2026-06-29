@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.artranslator.core.database"
+    namespace = "com.letsgo.translator.core.database"
     compileSdk = 34
 
     defaultConfig {

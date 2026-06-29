@@ -15,11 +15,11 @@ val localProperties = Properties().apply {
 }
 
 android {
-    namespace = "com.example.artranslator"
+    namespace = "com.letsgo.translator"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.artranslator"
+        applicationId = "com.letsgo.translator"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

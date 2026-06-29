@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.artranslator.feature.phrasebook"
+    namespace = "com.letsgo.translator.feature.phrasebook"
     compileSdk = 34
 
     defaultConfig {

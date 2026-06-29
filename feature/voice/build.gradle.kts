@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.artranslator.feature.voice"
+    namespace = "com.letsgo.translator.feature.voice"
     compileSdk = 34
 
     defaultConfig {
